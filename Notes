@@ -1,0 +1,4 @@
+Known bugs:
+
+1. vdifzipper.cpp: createVDIFHeader, number of channels instead of 1
+2. copy data to each channel, at the moment only copying the first channel
