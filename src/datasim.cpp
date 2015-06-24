@@ -74,18 +74,14 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
     framespersec = config->getFramesPerSecond(configindex, i);
     vptime = 1.0 * 1e6 / framespersec;
     antname = config->getTelescopeName(i);
+    // change the last character of the output vdif name to lower case for fourfit postprocessing
+    antname.back() = tolower(antname.back());
     if(verbose >= 1)
     { 
       cout << "Antenna " << i << endl;
       cout << " framebytes is " << framebytes << endl;
       cout << " numrecordedbands is " << numrecordedbands << endl;
       cout << " antenna name is " << antname << endl;
-    }
-
-    if(framebytes < VDIF_HEADER_BYTES)
-    {
-      cout << "Frame bytes is smaller than VDIF_HEADER_BYTES!!! Something is wrong here ..." << endl;
-      return EXIT_FAILURE;
     }
 
     // only consider scan 0 sourc 0
@@ -106,7 +102,7 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
   
     for(size_t j = 0; j < numrecordedbands; j++)
     {
-      freq = config->getDRecordedFreq(configindex, i, 0);
+      freq = config->getDRecordedFreq(configindex, i, j);
       bw = config->getDRecordedBandwidth(configindex, i, j);
       if(!is_integer((freq - minStartFreq) / specRes))
       {
@@ -211,7 +207,7 @@ int main(int argc, char* argv[])
   float specRes, minStartFreq;
   int numdatastreams, numrecordedbands, freqindex;
   int numSamps;                         // number of samples to be generated per time block for the common signal
-  int stime;                            // step time in microsecond == time block, i.e. time represented by the number of samples per subband
+  int stime;                            // step time in microsecond == time block
   int configindex = 0;
   cf32* commFreqSig;                    // 0.5 seconds common frequency domain signal
   vector<SBArr*> sbVec;                 // vector of subband arrays
@@ -234,7 +230,7 @@ int main(int argc, char* argv[])
   dur = test ? testdur : config->getExecuteSeconds();
 
   numdatastreams = config->getNumDataStreams();
-  cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << endl
+  cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
        << "csigma is " << csigma << endl;
 
   for(int i = 0; i < numdatastreams; i++)
@@ -265,7 +261,7 @@ int main(int argc, char* argv[])
   }
 
   // general information from model
-  if(verbose >= 2)
+  if(verbose >= 1)
   {
     cout << "Number of scans is " << model->getNumScans() << endl;
     cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;

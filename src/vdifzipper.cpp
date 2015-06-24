@@ -1,7 +1,7 @@
 /*
  * vdifzipper.cpp
  * The Non-zero baseline data simulator
- * Combine sigle-thread VDIF files to a multi-threads VDIF file
+ * Combine sigle-channel VDIF files to a single thread multi-channel VDIF file
  *
  * Author: Zheng Meyer-Zhao
  * 2014/02/21
@@ -28,7 +28,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   size_t numdatastreams = (size_t)config->getNumDataStreams();
   int mjd, seconds;
   
-  cout << "Combine VDIF files of each channel into a multi-thread VDIF file ..." << endl;
+  cout << "Combine VDIF files of each channel into a single-thread multi-channel VDIF file ..." << endl;
  
   mjd = config->getStartMJD();
   seconds = config->getStartSeconds();
@@ -60,6 +60,9 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     framebytes = (size_t)config->getFrameBytes(configindex, i);
     numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, i);
     antname = config->getTelescopeName(i);
+    // change the last character of the output vdif name to lower case for fourfit postprocessing
+    antname.back() = tolower(antname.back());
+
     chvpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
 
     ifstream chfile[numrecordedbands];
@@ -72,9 +75,9 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
 
     if(verbose >= 1)
     {
-      cout << " framebyte is " << framebytes << "bytes, number of channels is " << numrecordedbands
-        << "\n bandwitdh is " << bw << "MHz, framespersec is " << framespersec
-        << "\n total number of frames is " << totalnumframes << endl;
+      cout << " framebyte is " << framebytes << "bytes, number of channels is " << numrecordedbands<< "\n"
+           << " bandwitdh is " << bw << "MHz, framespersec is " << framespersec<< "\n"
+           << " total number of frames is " << totalnumframes << endl;
     }
     // allocate memory for vdif packet buffer and input file streams
     uint8_t* outputvdifbuf;
@@ -89,7 +92,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     }
 
     // initialize VDIF header of the output buffer
-    createVDIFHeader((vdif_header *)outputvdifbuf, framebytes - VDIF_HEADER_BYTES, i, BITS, 1, ISCOMPLEX, (char *)antname.c_str());
+    createVDIFHeader((vdif_header *)outputvdifbuf, framebytes - VDIF_HEADER_BYTES, i, BITS, numrecordedbands, ISCOMPLEX, (char *)antname.c_str());
     setVDIFEpoch((vdif_header *)outputvdifbuf, mjd);
     setVDIFFrameMJDSec((vdif_header *)outputvdifbuf, mjd*86400 + seconds);
     if(verbose >= 2)

@@ -11,7 +11,6 @@
   
   #include <cstdint>
   
-  #define TIME 32.0
   #define EPSILON 1e-6
 
   /* parameters used for quantization and vdif */
