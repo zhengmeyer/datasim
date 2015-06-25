@@ -243,20 +243,16 @@ int main(int argc, char* argv[])
       return EXIT_FAILURE;
     }
     numrecordedbands = config->getDNumRecordedBands(configindex, i);
-    if(verbose >= 1)
-    {
-      cout << "Telescope " << config->getTelescopeName(i) << " has " << numrecordedbands << " recorded bands" << endl;
-      cout << " Number of frames per second is " << framespersec << endl;
-    }
+
+    cout << "Telescope " << config->getTelescopeName(i) << " has " << numrecordedbands << " recorded bands" << endl;
+    cout << " Number of frames per second is " << framespersec << endl;
+
     for(int j = 0; j < numrecordedbands; j++)
     {
       freqindex = config->getDRecordedFreqIndex(configindex, i, j); 
-      if(verbose >= 1)
-      {
-        cout << "Subband " << j << ":" << "\n"
-             << "  Frequency " << config->getFreqTableFreq(freqindex) << "\n"
-             << "  Bandwidth " << config->getFreqTableBandwidth(freqindex) << endl; 
-      }
+      cout << "Subband " << j << ":" << "\n"
+           << "  Frequency " << config->getFreqTableFreq(freqindex) << "\n"
+           << "  Bandwidth " << config->getFreqTableBandwidth(freqindex) << endl; 
     }
   }
 

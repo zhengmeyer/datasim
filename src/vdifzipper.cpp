@@ -1,7 +1,7 @@
 /*
  * vdifzipper.cpp
  * The Non-zero baseline data simulator
- * Combine sigle-channel VDIF files to a single thread multi-channel VDIF file
+ * Combine single thread sigle-channel VDIF files to a single thread multi-channel VDIF file
  *
  * Author: Zheng Meyer-Zhao
  * 2014/02/21
@@ -40,13 +40,14 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   // loop through all the antennas
   for(size_t i = 0; i < numdatastreams; i++)
   {
-    size_t framebytes, numrecordedbands;
-    size_t chvpbytes, sampsperbyte = 8 / BITS;
-    size_t osampsperbyte;
-    float bw;
+    size_t framebytes;                    // data frame size of the output VDIF file
+    size_t numrecordedbands;              // number of channels
+    size_t chvpbytes;                     // data frame size of a single channel
+    size_t numsampsperframe;              // number of samples per frame of a single channel VDIF file
+    float bw;                             // bandwidth
     size_t framespersec, totalnumframes;
-    size_t shift, ishift, oshift;
-    uint8_t *optr, *iptr;
+    size_t ishift, oshift;
+    uint8_t *optr, *iptr, *soptr, *siptr;
     uint8_t bits, imask, omask;
     string antname;
     ofstream outputvdif;
@@ -64,20 +65,21 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     antname.back() = tolower(antname.back());
 
     chvpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
+    numsampsperframe = (chvpbytes - VDIF_HEADER_BYTES) * BITSPERBYTE / BITS;
 
     ifstream chfile[numrecordedbands];
-    // retrieve bandwidth information of each antenna
-    // calculate vdif packet time and number of frames per second
+
+    // retrieve bandwidth information and number of frames per second of each antenna
     bw = config->getDRecordedBandwidth(configindex, i, 0);
     framespersec = config->getFramesPerSecond(configindex, i);
     totalnumframes = durus / 1e6 * framespersec;
-    osampsperbyte = sampsperbyte / numrecordedbands;
 
     if(verbose >= 1)
     {
       cout << " framebyte is " << framebytes << "bytes, number of channels is " << numrecordedbands<< "\n"
            << " bandwitdh is " << bw << "MHz, framespersec is " << framespersec<< "\n"
-           << " total number of frames is " << totalnumframes << endl;
+           << " total number of frames is " << totalnumframes << "\n"
+           << " number of samples per frame is " << numsampsperframe << endl;
     }
     // allocate memory for vdif packet buffer and input file streams
     uint8_t* outputvdifbuf;
@@ -100,7 +102,8 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
       cout << " VDIF header initialized" << endl; 
     }
 
-    try {
+    try
+    {
       // open multi-channel vdif file to write to
       outputvdif.open(antname + ".vdif", ios::binary);
       if(verbose >= 2)
@@ -123,60 +126,39 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
 
       for(size_t idx = 0; idx < totalnumframes; idx++)
       {
-        optr = &outputvdifbuf[VDIF_HEADER_BYTES];
         // loop through all the channels
         for(size_t ch = 0; ch < numrecordedbands; ch++)
         {
-          optr = &outputvdifbuf[VDIF_HEADER_BYTES];
+          soptr = &outputvdifbuf[VDIF_HEADER_BYTES];
           // reset the value of the input vdif buffer
           fill_n(inputvdifbuf, chvpbytes, 0);
 
           chfile[ch].read((char *)inputvdifbuf, chvpbytes * sizeof(uint8_t));
 
-          // set input vdif buffer pointer at proper location
-          iptr = &inputvdifbuf[VDIF_HEADER_BYTES];
+          // set start input pointer at the beginning of data within the current frame
+          siptr = &inputvdifbuf[VDIF_HEADER_BYTES];
 
-          // loop through the data bytes of the channel
-          for(size_t bytes = VDIF_HEADER_BYTES; bytes < chvpbytes; bytes++)
+          // loop through number of samples within the current frame
+          for(size_t samp = 0; samp < numsampsperframe; samp++)
           {
-            if((idx == 0) && (bytes < VDIF_HEADER_BYTES + 4) && (verbose >= 2))
-              cout << "input bytes " << bytes <<": value " << static_cast<unsigned>(*iptr) << endl;
-            //*optr = (*iptr);
-            size_t osampcnt = 0;
-            for(size_t samp = 0; samp < sampsperbyte; samp++)
-            {
-              // shift to the proper input bit
-              ishift = samp * BITS;
-              imask = 03;
-              imask <<= ishift;
-              bits = (*iptr) & imask;
-              bits >>= ishift;
-              // store the value at the proper output bits
-              shift = ishift * numrecordedbands + ch * 2;
-              oshift = shift % 8;
-              bits <<= oshift;
-              omask = 03;
-              omask <<= oshift;
-              (*optr) &= ~omask;
-              (*optr) |= bits;
-              if((idx == 0) && (bytes < VDIF_HEADER_BYTES + 4) && (verbose >= 2)) {
-                cout << "ishift is " << static_cast<unsigned>(ishift) << ", imask is " << static_cast<unsigned>(imask) << "\n"
-                     << "bits is " << static_cast<unsigned>(bits) << ", shift is " << static_cast<unsigned>(shift) << "\n"
-                     << "oshift is " << static_cast<unsigned>(oshift) << ", omask is " << static_cast<unsigned>(omask) << endl;
-              }
-              // update output sample counter
-              osampcnt++;
-              // if the current output sample byte is full
-              // move the pointer to the next byte
-              if(osampcnt == osampsperbyte) {
-                if((idx == 0) && (bytes < VDIF_HEADER_BYTES + 4) && (verbose >= 2))
-                  cout << "output bytes value is " << static_cast<unsigned>(*optr) << endl; 
-                optr++;
-                osampcnt = 0;
-              }
-            }
-            iptr++;
-            //optr++;
+            // set the input pointer at the proper byte for the current sample
+            iptr = siptr + (samp * BITS) / BITSPERBYTE;
+            // shift to the proper bits and retrieve bits value
+            ishift = (samp * BITS) % BITSPERBYTE;
+            imask = 03;
+            imask <<= ishift;
+            bits = (*iptr) & imask;
+            bits >>= ishift;
+
+            // store the bits value at the proper location in the output data frame
+            // samp of input data frame is equivalent to the complete sample index of output data frame
+            optr = soptr + (samp * BITS * numrecordedbands) / BITSPERBYTE + (ch * BITS) / BITSPERBYTE;
+            oshift = (ch * BITS) % BITSPERBYTE;
+            omask = 03;
+            omask <<= oshift;
+            bits <<= oshift;
+            (*optr) &= ~omask;
+            (*optr) |= bits;
           }
         }
         // write to output vdif file

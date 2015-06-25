@@ -42,9 +42,6 @@ int getSpecRes(Configuration* config, int configindex, float& specRes, size_t ve
   {
     startfreq.push_back(config->getDRecordedFreq(configindex, i, 0));
     bandwidth.push_back(config->getDRecordedBandwidth(configindex, i, 0));
-    cout << "Telescope " << config->getTelescopeName(i) << "\n"
-         << "  Start Frequency is " << startfreq.back() << "\n"
-         << "  Recorded bandwidth is " << bandwidth.back() << endl;
   }
   for(it = startfreq.begin(); it != startfreq.end(); it++)
   {

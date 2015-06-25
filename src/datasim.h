@@ -16,13 +16,9 @@
   /* parameters used for quantization and vdif */
   #define CORR 0.05
   #define BSMX 1024 * 1024
-  #ifndef BITS
-    #define BITS 2
-  #endif
-  
-  #ifndef ISCOMPLEX
-    #define ISCOMPLEX 0
-  #endif
+  #define BITS 2
+  #define ISCOMPLEX 0
+  #define BITSPERBYTE 8
 
 #endif /* __DATASIM_H__ */
 

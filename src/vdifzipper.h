@@ -12,14 +12,7 @@
 #define __VDIFZIPPER_H__
 
 #include "configuration.h"
-
-#ifndef BITS
-  #define BITS 2
-#endif
-
-#ifndef ISCOMPLEX
-  #define ISCOMPLEX 0
-#endif
+#include "datasim.h"
 
 void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose);
 
