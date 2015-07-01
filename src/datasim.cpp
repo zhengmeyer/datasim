@@ -213,7 +213,7 @@ int main(int argc, char* argv[])
   vector<SBArr*> sbVec;                 // vector of subband arrays
 
   double timer = 0.0, tt, vptime;       // vptime is the time duration of the samples within the packet
-  float csigma = sqrt(CORR / (1-CORR));
+  float csigma = sqrt(CORR / (1-CORR)); // adjust common signal amplitude with csigma
   size_t framespersec;
 
   // initialize random number generator
@@ -317,7 +317,7 @@ int main(int argc, char* argv[])
 
     if(tt >= tdur)
     {
-      cout << "**the lowest process pointer time is larger that tdur!!!\n"
+      cout << "**the lowest process pointer time is larger than tdur!!!\n"
               "**Something is wrong here!!!" << endl;
       return (EXIT_FAILURE);
     }

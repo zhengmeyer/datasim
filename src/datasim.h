@@ -14,7 +14,7 @@
   #define EPSILON 1e-6
 
   /* parameters used for quantization and vdif */
-  #define CORR 0.05
+  #define CORR 0.05               // amplitude of common signal relative to the station receiver noise
   #define BSMX 1024 * 1024
   #define BITS 2
   #define ISCOMPLEX 0
