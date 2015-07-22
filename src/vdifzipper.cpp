@@ -153,7 +153,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
             // store the bits value at the proper location in the output data frame
             // samp of input data frame is equivalent to the complete sample index of output data frame
             optr = soptr + (samp * BITS * numrecordedbands) / BITSPERBYTE + (ch * BITS) / BITSPERBYTE;
-            oshift = (ch * BITS) % BITSPERBYTE;
+            oshift = ((samp * BITS * numrecordedbands) % BITSPERBYTE + (ch * BITS) % BITSPERBYTE) % BITSPERBYTE;
             omask = 03;
             omask <<= oshift;
             bits <<= oshift;
