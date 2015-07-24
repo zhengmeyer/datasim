@@ -210,7 +210,7 @@ void SBArr::fillprocbuffer()
  * apply fringe rotation
  * complex to real conversion
  */
-void SBArr::processdata(Model* model)
+void SBArr::processdata()
 {
   // apply fringe rotation
   //applyfringerotation();

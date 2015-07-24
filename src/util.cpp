@@ -247,7 +247,7 @@ int processAndPacketize(float csigma, size_t framespersec, vector<SBArr*>& sbVec
       cout << "Antenna " << (*it)->getantIdx() << " Subband "
            << (*it)->getsbIdx() << " process vdif packet" << endl;
     (*it)->fillprocbuffer(); 
-    (*it)->processdata(model); 
+    (*it)->processdata(); 
     (*it)->updatevalues(model);
  
     (*it)->quantize(csigma);

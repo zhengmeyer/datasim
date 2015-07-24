@@ -67,7 +67,7 @@ class SBArr{
      * apply fringe rotation
      * complex to real conversion
      */
-    void processdata(Model* model);
+    void processdata();
  
     /*
      * update package counter
