@@ -41,7 +41,9 @@ SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length
   // calculate the sample time and nearest sample
   d_sampletime = 1.0 / static_cast<double>(d_bandwidth);
   d_vptime = d_vpsamps / static_cast<double>(d_bandwidth);
-  d_nearestsample = static_cast<int>(d_starttime * d_bandwidth + 0.5);
+
+  // use the time at the middle of a packet to calculate nearest sample
+  d_nearestsample = static_cast<int>((delaycoeffs[1] + delaycoeffs[0]*d_vptime*1e-6/2.0) * d_bandwidth + 0.5);
   // fractinal sample error of the nearest sample (in us)
   // is nearestsampletime - starttime
   double nearestsampletime = d_nearestsample * d_sampletime;
@@ -57,8 +59,8 @@ SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length
   // initialize packet counter
   d_pkcounter = 0;
 
-  // process pointer start at delay offset (nearest sample)
-  d_procptr = d_nearestsample + d_length / 2;
+  // process pointer start at delay offset
+  d_procptr =  static_cast<int>(d_starttime * d_bandwidth + 0.5) + d_length / 2;
   if(d_verbose >= 2) cout << "Process pointer start at " << d_procptr << endl;
 
   // vdif file name to write data to
