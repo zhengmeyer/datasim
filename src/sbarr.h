@@ -116,6 +116,7 @@ class SBArr{
     int d_nearestsample;      // nearest sample w.r.t. delay offset
     double d_fracsamperror;   // fractional sample error of the nearest sample
     size_t d_pkcounter;       // vdif packet counter
+    int d_shift;              // number of sample shift due to updating the fractional sample error
 
     uint8_t* d_vdifbuf;       // vdif packet buffer
     f64* d_delaycoeffs;       // delay coefficients

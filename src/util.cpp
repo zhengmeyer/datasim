@@ -82,7 +82,7 @@ int getSpecRes(Configuration* config, int configindex, float& specRes, size_t ve
 }
 
 /*
- * Calculate the maximum subband width among all antennas
+ * Calculate the maximum band covereage (bandwidth * nChans) among all antennas
  */
 float getMaxChanFreq(Configuration* config, int configindex, size_t verbose)
 {

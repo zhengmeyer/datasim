@@ -58,6 +58,8 @@ SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length
 
   // initialize packet counter
   d_pkcounter = 0;
+  // initialize shift counter
+  d_shift = 0;
 
   // process pointer start at delay offset
   d_procptr =  static_cast<int>(d_starttime * d_bandwidth + 0.5) + d_length / 2;
@@ -279,9 +281,10 @@ void SBArr::updatevalues(Model* model)
   // only consider scan 0 source 0
   // only consider first order
   // scanindex, offsettime, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
-  model->calculateDelayInterpolator(0, (d_starttime+d_pkcounter*d_vptime)*1e-6, d_vptime*1e-6, 1, d_antIdx, 0, 1, d_delaycoeffs);
+  model->calculateDelayInterpolator(0, (d_starttime+d_pkcounter*d_vptime + d_shift * d_sampletime)*1e-6, d_vptime*1e-6, 1, d_antIdx, 0, 1, d_delaycoeffs);
   if(d_verbose >= 2)
-    cout << "delaycoeffs at offset " << (d_starttime+d_pkcounter*d_vptime)*1e-6 << " is " << d_delaycoeffs[0] << " " << d_delaycoeffs[1] << endl;
+    cout << "delaycoeffs at offset " << (d_starttime+d_pkcounter*d_vptime + d_shift * d_sampletime)*1e-6 << " is " << d_delaycoeffs[0] << " " << d_delaycoeffs[1] << endl;
+  
   // calculate fractional sample error for the next vdif packet
   d_fracsamperror += d_delaycoeffs[1] - (prevdelay + prevrate * d_vptime * 1e-6);
 
@@ -302,7 +305,7 @@ void SBArr::updatevalues(Model* model)
            << "  fractional sample error is " << d_fracsamperror << ", larger than " << 0.5*d_sampletime << "!!" << endl
            << "  move process pointer to the next position!!" << endl;
     d_procptr++;
-    d_nearestsample++;
+    d_shift++;
     d_fracsamperror -= d_sampletime;
     if(d_verbose >= 2)
       cout << "  process pointer now at position " << d_procptr << endl
@@ -315,7 +318,7 @@ void SBArr::updatevalues(Model* model)
            << "  fractional sample error is " << d_fracsamperror << ", smaller than " << -0.5*d_sampletime << "!!" << endl
            << "  move process pointer to the previous position!!" << endl;
     d_procptr--;
-    d_nearestsample--;
+    d_shift--;
     d_fracsamperror += d_sampletime;
     if(d_verbose >= 2)
       cout << "  process pointer now at position " << d_procptr << endl
