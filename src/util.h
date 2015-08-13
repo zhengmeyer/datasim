@@ -52,7 +52,7 @@ void gencplx(cf32* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbo
 /*
  * Generate TDUR time signal for all subband of all antennas
  */
-void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float csigma, size_t verbose);
+void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float sfluxdensity, size_t verbose);
 /*
  * loop through each subband of each antenna
  * move data from the second half of the array to the first half
@@ -66,7 +66,7 @@ void movedata(vector<SBArr*>& sbVec, size_t verbose);
  * quantization
  * pack to vdif
  */
-int processAndPacketize(float csigma, size_t framespersec, vector<SBArr*>& sbVec, Model* model, size_t verbose);
+int processAndPacketize(size_t framespersec, vector<SBArr*>& sbVec, Model* model, size_t verbose);
 /*
  * calculate the lowest process pointer among all subband arrays
  */

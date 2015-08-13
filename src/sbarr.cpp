@@ -105,6 +105,8 @@ SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length
   // allocate memory for process buffer with size of vpsamps
   d_procbuffer = vectorAlloc_cf32(d_vpsamps);
   d_procbuffreq = vectorAlloc_cf32(d_vpsamps);
+  d_procbufferrot = vectorAlloc_cf32(d_vpsamps);
+  d_procbuffreqcorr = vectorAlloc_cf32(d_vpsamps);
 
   // allocate memory for complex and real signal array with size of 2*vpsamps
   // arrays used to convert complex to real
@@ -148,6 +150,8 @@ SBArr::~SBArr()
   vectorFree(d_bufCToR);
   vectorFree(d_procbuffer);
   vectorFree(d_procbuffreq);
+  vectorFree(d_procbufferrot);
+  vectorFree(d_procbuffreqcorr);
   vectorFree(d_buffreqtemp);
   vectorFree(d_realC);
   vectorFree(d_real);
@@ -161,10 +165,10 @@ SBArr::~SBArr()
 /*
  * Public functions
  */
-void SBArr::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float csigma)
+void SBArr::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxdensity)
 {
   copyToTemp(commFreqSig);
-  mulCsigma(csigma);
+  mulsfluxdensity(sfluxdensity);
   addstationnoise(rng_inst);
   applyfilter();
 
@@ -241,14 +245,14 @@ void SBArr::processdata()
   }
 
   // apply inverse DFT
-  inverseDFT(d_procbuffreq, d_procbuffer, d_pDFTSpecCproc, d_bufproc);
+  inverseDFT(d_procbuffreqcorr, d_procbuffer, d_pDFTSpecCproc, d_bufproc);
 
   // apply fringe rotation
   applyfringerotation();
 
   // complex to real conversion
   // 1. transform signal from time domain to frequency domain
-  DFT(d_procbuffer, d_procbuffreq, d_pDFTSpecCproc, d_bufproc);
+  DFT(d_procbufferrot, d_procbuffreq, d_pDFTSpecCproc, d_bufproc);
 
   if(d_verbose >= 2)
     cout << "procbuf at DC after 2nd DFT is " << d_procbuffreq[0].re << " " << d_procbuffreq[0].im << endl;
@@ -329,7 +333,7 @@ void SBArr::updatevalues(Model* model)
 /*
  * Quantization
  */
-void SBArr::quantize(float csigma)
+void SBArr::quantize()
 {
   if(d_verbose >= 2)
     cout << "   Start quantization ..." << endl; 
@@ -337,7 +341,8 @@ void SBArr::quantize(float csigma)
   uint8_t bits, mask;
   uint8_t *optr = &d_vdifbuf[VDIF_HEADER_BYTES];
   float sample;
-  float thresh = sqrt(1 + csigma * csigma) * d_tmul;
+  //float thresh = sqrt(1 + csigma * csigma) * d_tmul;
+  float thresh = d_tmul;
 
   for(size_t i = 0; i < 2 * d_vpsamps; i++)
   {
@@ -408,14 +413,14 @@ void SBArr::copyToTemp(Ipp32fc* commFreqSig)
 }
 
 /*
- * Change common signal amplitutde by multiplying csigma 
+ * Change common signal amplitutde by multiplying square root of source flux density 
  */
-void SBArr::mulCsigma(float csigma)
+void SBArr::mulsfluxdensity(float sfluxdensity)
 {
   for(size_t idx = 0; idx < d_blksize; idx++)
   {
-    d_temp[idx].re *= csigma;
-    d_temp[idx].im *= csigma;
+    d_temp[idx].re *= sqrt(sfluxdensity);
+    d_temp[idx].im *= sqrt(sfluxdensity);
   }
 }
 
@@ -564,7 +569,7 @@ void SBArr::applyfracsamperrcorrection()
     d_fracsamperrbuf[idx].im = (float)sin(fracerr);
   }
 
-  status = ippsMul_32fc_I(d_fracsamperrbuf, d_procbuffreq, d_vpsamps);
+  status = ippsMul_32fc(d_fracsamperrbuf, d_procbuffreq, d_procbuffreqcorr, d_vpsamps);
   if(status != vecNoErr)
     cout << "Error in application of fractional sample correction!!!" << endl;
 }
@@ -590,7 +595,7 @@ void SBArr::applyfringerotation()
     d_fringerotbuf[idx].im = sin(phase); 
   }
 
-  status = ippsMul_32fc_I(d_fringerotbuf, d_procbuffer, d_vpsamps);
+  status = ippsMul_32fc(d_fringerotbuf, d_procbuffer, d_procbufferrot, d_vpsamps);
   if(status != vecNoErr)
     cout << "Error in application of fringe rotation!!!" << endl;
 }

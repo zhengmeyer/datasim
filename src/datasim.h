@@ -10,7 +10,8 @@
 #define __DATASIM_H__
   
   #include <cstdint>
-  
+  #include <string>
+
   #define EPSILON 1e-6
 
   /* parameters used for quantization and vdif */
@@ -19,6 +20,13 @@
   #define BITS 2
   #define ISCOMPLEX 0
   #define BITSPERBYTE 8
+
+  typedef struct setup {
+    int verbose;
+    int test;                     // test mode
+    float sfluxdensity;           // source flux density in Jansky
+    std::string inputfilename;    // .input file name
+  } setup;
 
 #endif /* __DATASIM_H__ */
 

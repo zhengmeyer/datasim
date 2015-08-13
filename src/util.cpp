@@ -175,7 +175,7 @@ void gencplx(cf32* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbo
 /*
  * Generate signal of time duration 'tdur' for all subband of all antennas
  */
-void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float csigma, size_t verbose)
+void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float sfluxdensity, size_t verbose)
 {
   vector<SBArr*>::iterator it;
   if(verbose >= 1)
@@ -199,7 +199,7 @@ void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSa
       {
         cout << " Fabricate data for Antenna " << (*it)->getantIdx() << "subband " << (*it)->getsbIdx() << endl;
       }
-      (*it)->fabricatedata(commFreqSig, rng_inst, csigma); 
+      (*it)->fabricatedata(commFreqSig, rng_inst, sfluxdensity); 
     }
   }
 
@@ -238,7 +238,7 @@ void movedata(vector<SBArr*>& sbVec, size_t verbose)
  * quantization
  * pack to vdif
  */
-int processAndPacketize(float csigma, size_t framespersec, vector<SBArr*>& sbVec, Model* model, size_t verbose)
+int processAndPacketize(size_t framespersec, vector<SBArr*>& sbVec, Model* model, size_t verbose)
 {
   vector<SBArr*>::iterator it;
   for(it = sbVec.begin(); it != sbVec.end(); ++it)
@@ -250,7 +250,7 @@ int processAndPacketize(float csigma, size_t framespersec, vector<SBArr*>& sbVec
     (*it)->processdata(); 
     (*it)->updatevalues(model);
  
-    (*it)->quantize(csigma);
+    (*it)->quantize();
     (*it)->writetovdif();
     if(verbose >= 2)
       cout << "current seconds is " << ((vdif_header *)(*it)->getvdifbuf())->seconds

@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <unistd.h>
 #include <vector>
 #include <string>
 #include <gsl/gsl_randist.h>
@@ -30,14 +31,68 @@ static void usage(int argc, char **argv)
   cout << "     -h" << endl;
   cout << "     --help        display this information and quit." << endl;
   cout << endl;
+  cout << "     -f" << endl;
+  cout << "     --flux        source flux density in Jansky (default is 1 Jy)." << endl;
+  cout << endl;
   cout << "     -v" << endl;
   cout << "     --verbose     increase the verbosity of the output; -v -v for more." << endl;
   cout << endl;
   cout << "     -t" << endl;
   cout << "     --test        run in test mode, generate 1 second data for each station no matter what's given in the configuration file." << endl;
   cout << endl;
-}   
-      
+}
+
+static void cmdparser(int argc, char* argv[], setup &setupinfo)
+{
+  char tmp;
+
+  while((tmp=getopt(argc,argv,"hf:vt"))!=-1)
+  {
+    switch(tmp)
+    {
+      case 'h':
+        usage(argc, argv);
+        exit (EXIT_SUCCESS);
+        break;
+      case 'f':
+        if(*optarg == '-' || atof(optarg) == 0.0)
+        {
+          cerr << "Option -f requires a non-zero floating-point number as argument." << endl;
+          exit (EXIT_FAILURE);
+        }
+        else
+          setupinfo.sfluxdensity = atof(optarg);
+        break;
+      case 'v':
+        setupinfo.verbose++;
+        break;
+      case 't':
+      setupinfo.test = 1;
+      break;
+      default:
+        usage(argc, argv);
+        exit (EXIT_FAILURE);
+        break;
+    }
+  }
+  // check if input VDIF file name is given
+  if(optind > argc - 1)
+  {
+    cerr << "No .input file provided, nothing to do ..." << endl;
+    usage(argc, argv);
+    exit (EXIT_FAILURE);
+  }
+  else if(optind < argc - 1)
+  {
+    cerr << "Multiple input files provided, only one is expected." << endl;
+    usage(argc, argv);
+    exit (EXIT_FAILURE);
+  }
+  else
+  {
+    setupinfo.inputfilename = argv[optind];
+  }
+}
      
 int initVecSBArr(Configuration* config, int configindex, float specRes, 
                   float minStartFreq, vector<SBArr*> &sbVec, Model* model,
@@ -151,54 +206,17 @@ void freeVecSBArr(vector<SBArr*> &sbVec)
 
 int main(int argc, char* argv[])
 {
-  size_t verbose = 0;
-  size_t test = 0;
+  setup setupinfo;
+  setupinfo.verbose = 0;
+  setupinfo.test = 0;
+  setupinfo.sfluxdensity = 1;   // source flux density in Jansky
+  setupinfo.inputfilename = "";  // .input file name
+
+  // parse command line argument
+  cmdparser(argc, argv, setupinfo);
+
   float tdur = 0.5 * 1e6;
-  float testdur; // time duration of test mode
-  string inputFile;
-
-  if(argc < 2)
-  {
-    usage(argc, argv);
-    return EXIT_FAILURE;
-  }
-
-  for(size_t i = 1; i < (size_t)argc; i++)
-  {
-    if(argv[i][0] == '-')
-    {
-      if(strcmp(argv[i], "-h") == 0 ||
-         strcmp(argv[i], "--help") == 0) 
-      {
-        usage(argc, argv);
-        return EXIT_SUCCESS;
-      }
-      else if(strcmp(argv[i], "-v") == 0 ||
-        strcmp(argv[i], "--verbose") == 0)
-      {
-        ++verbose;
-      }
-      else if(strcmp(argv[i], "-t") == 0 ||
-        strcmp(argv[i], "--test") == 0)
-      {
-        test = 1;
-        testdur = 1;
-        cout << "Entering test mode ..." << endl;
-      }
-    }
-    else
-    {
-      if(!inputFile.empty())
-      {
-        cout << "inputFile value is " << inputFile << endl;
-        cerr << "Multiple input files provided, only one is expected" << endl;
-        cerr << "Run with -h or --help for help information" << endl;
-
-        return EXIT_FAILURE;
-      }
-      inputFile = argv[i];   
-    }
-  }
+  float testdur = 1; // time duration of test mode
 
   Configuration* config;
   Model* model;
@@ -213,7 +231,6 @@ int main(int argc, char* argv[])
   vector<SBArr*> sbVec;                 // vector of subband arrays
 
   double timer = 0.0, tt, vptime;       // vptime is the time duration of the samples within the packet
-  float csigma = sqrt(CORR / (1-CORR)); // adjust common signal amplitude with csigma
   size_t framespersec;
 
   // initialize random number generator
@@ -222,16 +239,16 @@ int main(int argc, char* argv[])
   rng_inst = gsl_rng_alloc(gsl_rng_ranlux389);
   gsl_rng_set(rng_inst, SEED);
 
-  config = new Configuration(inputFile.c_str(), 0);
+  config = new Configuration(setupinfo.inputfilename.c_str(), 0);
   model = config->getModel();
 
   // retrieve general information from config
   // if in test mode, only generate data for 1 second
-  dur = test ? testdur : config->getExecuteSeconds();
+  dur = setupinfo.test ? testdur : config->getExecuteSeconds();
 
   numdatastreams = config->getNumDataStreams();
   cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
-       << "csigma is " << csigma << endl;
+       << "source flux density is " << setupinfo.sfluxdensity << endl;
 
   for(int i = 0; i < numdatastreams; i++)
   {
@@ -257,7 +274,7 @@ int main(int argc, char* argv[])
   }
 
   // general information from model
-  if(verbose >= 1)
+  if(setupinfo.verbose >= 1)
   {
     cout << "Number of scans is " << model->getNumScans() << endl;
     cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
@@ -266,24 +283,24 @@ int main(int argc, char* argv[])
   }
 
   // calculate specRes, number of samples per time block, step time
-  if(getSpecRes(config, configindex, specRes, verbose) != EXIT_SUCCESS)
+  if(getSpecRes(config, configindex, specRes, setupinfo.verbose) != EXIT_SUCCESS)
   {
     cout << "Failed to calculate spectral resolution ..." << endl;
     return EXIT_FAILURE;
   };
-  numSamps = getNumSamps(config, configindex, specRes, verbose);
+  numSamps = getNumSamps(config, configindex, specRes, setupinfo.verbose);
   stime = static_cast<int>(1 / specRes); // step time in microsecond
-  if(verbose >= 1)
+  if(setupinfo.verbose >= 1)
   {
     cout << "SpecRes is " << specRes << " MHz" << endl;
     cout << "number of samples per time block is " << numSamps << "\n"
          << "step time is " << stime << " us" << endl;
     cout << "tdur is " << tdur << endl;
   }
-  minStartFreq = getMinStartFreq(config, configindex, verbose);
+  minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
 
   // create and initialize array for each subband of each antenna
-  if(initVecSBArr(config, configindex, specRes, minStartFreq, sbVec, model, tdur, verbose)
+  if(initVecSBArr(config, configindex, specRes, minStartFreq, sbVec, model, tdur, setupinfo.verbose)
       != EXIT_SUCCESS)
   {
     cout << "Failed to initialize Subband Array ..." << endl;
@@ -297,7 +314,7 @@ int main(int argc, char* argv[])
 
   // generate tdur time (e.g. 500000 microseconds) common frequency domain signal
   // and copy them to the right subband of each antenna
-  genSignal(tdur/stime, commFreqSig, sbVec, numSamps, rng_inst, tdur, csigma, verbose);
+  genSignal(tdur/stime, commFreqSig, sbVec, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
 
   // loop though the simulation time dur
   do
@@ -306,14 +323,14 @@ int main(int argc, char* argv[])
     // and set the process pointer to the proper location
     // i.e. data is moved half array ahead, therefore process pointer 
     // is moved half array ahead
-    movedata(sbVec, verbose);
+    movedata(sbVec, setupinfo.verbose);
     // fill in the second half of each array, and
     // reset the current pointer of each array after data is generated
-    genSignal(tdur/stime, commFreqSig, sbVec, numSamps, rng_inst, tdur, csigma, verbose);
+    genSignal(tdur/stime, commFreqSig, sbVec, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
 
     // set tt to the lowest process pointer time
-    tt = getMinProcPtrTime(sbVec, verbose);
-    if(verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
+    tt = getMinProcPtrTime(sbVec, setupinfo.verbose);
+    if(setupinfo.verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
 
     if(tt >= tdur)
     {
@@ -328,21 +345,21 @@ int main(int argc, char* argv[])
     while((tt < tdur) && (timer < durus))
     {
       // process and packetize one vdif packet for each subband array
-      if(processAndPacketize(csigma, framespersec, sbVec, model, verbose))
+      if(processAndPacketize(framespersec, sbVec, model, setupinfo.verbose))
         return(EXIT_FAILURE);
       tt += vptime;
       timer += vptime; 
-      if(verbose >= 2) cout << "tt is " << tt << ", timer is " << timer << endl;
+      if(setupinfo.verbose >= 2) cout << "tt is " << tt << ", timer is " << timer << endl;
     }
 
   }while(timer < durus);
   
   freeVecSBArr(sbVec);  
-  if(verbose >= 2) cout << "free memory for commFreq" << endl;
+  if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
   vectorFree(commFreqSig); 
 
   // combine VDIF files
-  vdifzipper(config, configindex, durus, verbose);
+  vdifzipper(config, configindex, durus, setupinfo.verbose);
 
   cout << "All data has been generated successfully, bye!" << endl;
 

@@ -49,7 +49,7 @@ class SBArr{
      * inverse DFT/FFT
      * copy time domain data to arr 
      */
-    void fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float csigma);
+    void fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxdensity);
     /*
      * move data from the second half of the array to the first half
      */
@@ -79,7 +79,7 @@ class SBArr{
     /*
      * Quantization
      */
-    void quantize(float csigma);
+    void quantize();
     /*
      * Pack the processed data to VDIF packet
      */
@@ -128,7 +128,9 @@ class SBArr{
     Ipp32fc* d_tempt;         // temporary array of time domain signal with size of d_blksize
 
     Ipp32fc* d_procbuffer;    // process buffer with size N, where N is the number of complex samples of a vdif packet    
-    Ipp32fc* d_procbuffreq;   // process buffer with size N in frequency domain    
+    Ipp32fc* d_procbuffreq;   // process buffer with size N in frequency domain
+    Ipp32fc* d_procbufferrot; // process buffer with size N, where N is the number of complex samples of a vdif packet, after fringe rotation 
+    Ipp32fc* d_procbuffreqcorr;// process buffer with size N in frequency domain after fractional sample error correction
     Ipp32fc* d_buffreqtemp;   // temporary frequency domain signal array with size 2N, which possesses Hermitian property    
     Ipp32fc* d_realC;         // complex signal array with size 2N, where imaginary part is 0    
     float* d_real;            // real signal array with size of 2N
@@ -149,7 +151,7 @@ class SBArr{
 
     // support functions for fabricatedata()
     void copyToTemp(Ipp32fc* commFreqSig);
-    void mulCsigma(float csigma);
+    void mulsfluxdensity(float sfluxdensity);
     void addstationnoise(gsl_rng *rng_inst);
     void applyfilter();
     void copyToArr();
