@@ -20,6 +20,118 @@
 
 using namespace std;
 
+     
+int initSubbands(Configuration* config, int configindex, float specRes, 
+                  float minStartFreq, vector<Subband*> &subbands, Model* model,
+                  float tdur, setup setupinfo)
+{
+  size_t length, startIdx, blksize;
+  size_t vpsamps;   // number of samples in a vdif packet
+  size_t vpbytes;   // number of bytes in a single-thread vdif packet
+  size_t framebytes, numrecordedbands;
+  size_t numdatastreams = (size_t)config->getNumDataStreams();
+  float freq, bw;
+  string antname;
+  int mjd, seconds;
+  f64* tempcoeffs;
+  f64* delaycoeffs;
+  double vptime;
+  size_t framespersec;
+  
+  mjd = config->getStartMJD();
+  seconds = config->getStartSeconds();
+  if(setupinfo.verbose >= 1)
+  {
+    cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
+  }
+
+  // allocate memory for delaycoeffs
+  tempcoeffs = vectorAlloc_f64(2);
+  delaycoeffs = vectorAlloc_f64(2);
+
+  for(size_t i = 0; i < numdatastreams; i++)
+  {
+    framebytes = (size_t)config->getFrameBytes(configindex, i);
+    numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, i);
+    framespersec = config->getFramesPerSecond(configindex, i);
+    vptime = 1.0 * 1e6 / framespersec;
+    antname = config->getTelescopeName(i);
+    // change the last character of the output vdif name to lower case for fourfit postprocessing
+    antname.back() = tolower(antname.back());
+    if(setupinfo.verbose >= 1)
+    { 
+      cout << "Antenna " << i << endl;
+      cout << " framebytes is " << framebytes << endl;
+      cout << " numrecordedbands is " << numrecordedbands << endl;
+      cout << " antenna name is " << antname << endl;
+    }
+
+    // only consider scan 0 sourc 0
+    // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
+    model->calculateDelayInterpolator(0, 0, vptime*1e-6, 1, i, 0, 1, tempcoeffs);
+    model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, vptime*1e-6, 1, i, 0, 1, delaycoeffs);
+    if(setupinfo.verbose >= 2)
+    {
+      cout << "delay in us for datastream " << i << " at offsettime 0s is " << tempcoeffs[1] << endl;
+      cout << "delay in us for datastream " << i << " at offsettime " << tempcoeffs[1]*1e-6 << "s " << " is " << delaycoeffs[1] << endl;
+    }
+
+    // calculate vdif packet size in terms of bytes and number of samples
+    // each sample uses 4 bits, as the sample is complex and we use 2 bits sampling
+    // therefore 2 samples per byte
+    vpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
+    vpsamps = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands * 2;
+  
+    for(size_t j = 0; j < numrecordedbands; j++)
+    {
+      freq = config->getDRecordedFreq(configindex, i, j);
+      bw = config->getDRecordedBandwidth(configindex, i, j);
+      if(!is_integer((freq - minStartFreq) / specRes))
+      {
+        cout << "StartIndex position is not an integer ... " << endl
+             << "Something is wrong here ... " << endl;
+        return EXIT_FAILURE;
+      }
+      else
+        startIdx = (freq - minStartFreq) / specRes;
+      
+      blksize = bw / specRes; // number of samples to copy from startIdx
+      length = bw * tdur * 2; // size of the array twice of tdur
+
+      if(setupinfo.verbose >= 1)
+      {
+        cout << "Ant " << i << " subband " << j << ":" << endl
+             << "  start index is " << startIdx << endl 
+             << "  block size is " << blksize << " length is " << length << endl
+             << "  each vdif packet has " << vpsamps << " samples" << endl
+             << "  VDIF_HEADER_BYTES is " << VDIF_HEADER_BYTES << " vpbytes is " << vpbytes << endl
+             << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
+             << "  recorded freq is " << freq << endl;
+      }
+      subbands.push_back(new Subband(startIdx, blksize, length, i, setupinfo.antSEFDs[i], j, vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose));
+    }
+  } 
+
+  vectorFree(tempcoeffs);
+  vectorFree(delaycoeffs);
+  return EXIT_SUCCESS;
+}
+
+void freeSubbands(vector<Subband*> &subbands)
+{
+  vector<Subband*>::iterator it;
+  for(it = subbands.begin(); it != subbands.end(); it++)
+  {
+    (*it)->closevdif();
+  }
+  // free the memory allocated
+  for(size_t i = 0; i < subbands.size(); i++)
+  {
+    delete subbands[i];
+  }
+  subbands.clear();
+}
+
 /*
  * Check whether the fractional part of a floating point number is 0
  */
@@ -175,9 +287,9 @@ void gencplx(cf32* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbo
 /*
  * Generate signal of time duration 'tdur' for all subband of all antennas
  */
-void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float sfluxdensity, size_t verbose)
+void genSignal(size_t stdur, cf32* commFreqSig, vector<Subband*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float sfluxdensity, size_t verbose)
 {
-  vector<SBArr*>::iterator it;
+  vector<Subband*>::iterator it;
   if(verbose >= 1)
   {
     cout << "Generate " << tdur << " us signal" << endl;
@@ -221,10 +333,10 @@ void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSa
  * move data from the second half of the array to the first half
  * set the process pointer to the proper location
  */
-void movedata(vector<SBArr*>& sbVec, size_t verbose)
+void movedata(vector<Subband*>& sbVec, size_t verbose)
 {
   if(verbose >= 2) cout << "Move data in each subband array forward" << endl;
-  vector<SBArr*>::iterator it;
+  vector<Subband*>::iterator it;
   for(it = sbVec.begin(); it != sbVec.end(); ++it)
   {
     (*it)->movedata();
@@ -238,9 +350,9 @@ void movedata(vector<SBArr*>& sbVec, size_t verbose)
  * quantization
  * pack to vdif
  */
-int processAndPacketize(size_t framespersec, vector<SBArr*>& sbVec, Model* model, size_t verbose)
+int processAndPacketize(size_t framespersec, vector<Subband*>& sbVec, Model* model, size_t verbose)
 {
-  vector<SBArr*>::iterator it;
+  vector<Subband*>::iterator it;
   for(it = sbVec.begin(); it != sbVec.end(); ++it)
   {
     if(verbose >= 2)
@@ -264,9 +376,9 @@ int processAndPacketize(size_t framespersec, vector<SBArr*>& sbVec, Model* model
 /*
  * calculate the lowest process pointer in terms of time among all subband arrays
  */
-double getMinProcPtrTime(vector<SBArr*>& sbVec, size_t verbose)
+double getMinProcPtrTime(vector<Subband*>& sbVec, size_t verbose)
 {
-  vector<SBArr*>::iterator it = sbVec.begin();
+  vector<Subband*>::iterator it = sbVec.begin();
   double minprocptrtime = (*it)->getprocptr() * (1.0 / (*it)->getbandwidth());
   double temp;
   for(it = sbVec.begin(); it != sbVec.end(); ++it)

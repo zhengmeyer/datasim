@@ -1,5 +1,5 @@
 /*
- * sbarr.cpp
+ * Subband.cpp
  * VLBI data simulator
  *
  * Author: Zheng Meyer-Zhao
@@ -16,7 +16,7 @@
 #include "architecture.h"
 #include "vdifio.h"
 #include "util.h"
-#include "sbarr.h"
+#include "subband.h"
 #include "datasim.h"
 #include "model.h"
 
@@ -25,7 +25,7 @@ using namespace std;
 /*
  * Constructor
  */
-SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
+Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
              size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth, string const &antname,
              int const &mjd, int const &seconds, float const &freq, size_t const &verbose)
   : d_startIdx(startIdx), d_blksize(blksize), d_length(length), d_antIdx(antIdx), d_antSEFD(antSEFD), d_sbIdx(sbIdx),
@@ -139,7 +139,7 @@ SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length
 /*
  * Destructor
  */
-SBArr::~SBArr()
+Subband::~Subband()
 {
   //vectorFree(d_arr);
   delete [] d_arr;
@@ -165,7 +165,7 @@ SBArr::~SBArr()
 /*
  * Public functions
  */
-void SBArr::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxdensity)
+void Subband::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxdensity)
 {
   copyToTemp(commFreqSig);
   mulsfluxdensity(sfluxdensity);
@@ -185,7 +185,7 @@ void SBArr::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxde
  * Move data from the second half of the array to the first half
  * Reset the process pointer
  */
-void SBArr::movedata()
+void Subband::movedata()
 {
   for(size_t i = 0; i < d_length / 2; i++)
   {
@@ -199,7 +199,7 @@ void SBArr::movedata()
 /*
  * Fill in the process buffer
  */
-void SBArr::fillprocbuffer()
+void Subband::fillprocbuffer()
 {
   if(d_verbose >= 2)
     cout << "   fill process buffer for the current vdif packet ..." << endl;
@@ -219,7 +219,7 @@ void SBArr::fillprocbuffer()
  * apply fringe rotation
  * complex to real conversion
  */
-void SBArr::processdata()
+void Subband::processdata()
 {
   // apply fringe rotation
   //applyfringerotation();
@@ -278,7 +278,7 @@ void SBArr::processdata()
  * update nearestsample
  * calculate fractional sample error for the next vdif packet and update procptr
  */
-void SBArr::updatevalues(Model* model)
+void Subband::updatevalues(Model* model)
 {
   double prevdelay = d_delaycoeffs[1];
   double prevrate = d_delaycoeffs[0];
@@ -334,7 +334,7 @@ void SBArr::updatevalues(Model* model)
 /*
  * Quantization
  */
-void SBArr::quantize()
+void Subband::quantize()
 {
   if(d_verbose >= 2)
     cout << "   Start quantization ..." << endl; 
@@ -380,7 +380,7 @@ void SBArr::quantize()
  * Pack the processed data to VDIF packet
  * And update the vdif packet counter
  */
-void SBArr::writetovdif()
+void Subband::writetovdif()
 {
   if(d_verbose >= 2)
     cout << "   write to output vdif file ..." << endl;
@@ -390,7 +390,7 @@ void SBArr::writetovdif()
 /*
  * Close the output vdif stream
  */
-void SBArr::closevdif()
+void Subband::closevdif()
 {
   d_vdiffile.close();
   if(d_verbose >= 1) cout << "Close output file stream " << d_filename << endl;
@@ -403,7 +403,7 @@ void SBArr::closevdif()
 /*
  * Copy data from common signal to temporary signal array
  */
-void SBArr::copyToTemp(Ipp32fc* commFreqSig)
+void Subband::copyToTemp(Ipp32fc* commFreqSig)
 {
   if(d_verbose >= 2)
     cout << "copy data to temp for ant " << d_antIdx << " subband " << d_sbIdx << endl;
@@ -416,7 +416,7 @@ void SBArr::copyToTemp(Ipp32fc* commFreqSig)
 /*
  * Change common signal amplitutde by multiplying square root of source flux density 
  */
-void SBArr::mulsfluxdensity(float sfluxdensity)
+void Subband::mulsfluxdensity(float sfluxdensity)
 {
   for(size_t idx = 0; idx < d_blksize; idx++)
   {
@@ -428,7 +428,7 @@ void SBArr::mulsfluxdensity(float sfluxdensity)
 /*
  * Add station noise
  */
-void SBArr::addstationnoise(gsl_rng *rng_inst)
+void Subband::addstationnoise(gsl_rng *rng_inst)
 {
   if(d_verbose >= 2)
     cout << "Adding station noise for ant " << d_antIdx << " subband " << d_sbIdx << endl;
@@ -450,7 +450,7 @@ void SBArr::addstationnoise(gsl_rng *rng_inst)
 /*
  * Signal normalization based on source flux density and antenna SEFD
  */
-void SBArr::normalizesignal(float sfluxdensity)
+void Subband::normalizesignal(float sfluxdensity)
 {
   for(size_t idx = 0; idx < d_blksize; idx++)
   {
@@ -462,7 +462,7 @@ void SBArr::normalizesignal(float sfluxdensity)
 /*
  * Apply Ormsby filter to the temporary signal array
  */
-void SBArr::applyfilter()
+void Subband::applyfilter()
 {
   // assume the filter array has size of d_blksize
   // with values 0.0, 1/2, 4/5, 1, 1, ...., 1, 4/5, 1/2
@@ -487,7 +487,7 @@ void SBArr::applyfilter()
 /*
  * Append the time domain signal in d_tempt to the signal array d_arr 
  */
-void SBArr::copyToArr()
+void Subband::copyToArr()
 {
   if(d_verbose >= 2)
   {
@@ -508,7 +508,7 @@ void SBArr::copyToArr()
  * copy data from d_procbuffreq to the first half of d_buffreqtemp
  * fill in the second half of d_buffreqtemp with Hermitian property of the signal
  */
-void SBArr::fillBuffreqtemp()
+void Subband::fillBuffreqtemp()
 {
   // copy data from d_procbuffreq to the first half of d_buffreqtemp
   for(size_t i = 0; i < d_vpsamps; i++)
@@ -530,7 +530,7 @@ void SBArr::fillBuffreqtemp()
 /*
  * copy the real part of d_realC to d_real
  */
-void SBArr::complex_to_real()
+void Subband::complex_to_real()
 {
   for(size_t i = 0; i < 2 * d_vpsamps; i++)
   { 
@@ -548,7 +548,7 @@ void SBArr::complex_to_real()
 /*
  * DFT
  */
-void SBArr::DFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf)
+void Subband::DFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf)
 {
   if(d_verbose >= 2) cout << "calling DFT ..." << endl;
   vectorDFT_CtoC_cf32(pSrc, pDst, pDFTSpecC, buf); 
@@ -557,7 +557,7 @@ void SBArr::DFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* b
 /*
  * inverse DFT
  */
-void SBArr::inverseDFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf)
+void Subband::inverseDFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf)
 {
   if(d_verbose >= 2) cout << "calling inverse DFT ..." << endl;
   ippsDFTInv_CToC_32fc(pSrc, pDst, pDFTSpecC, buf);
@@ -567,7 +567,7 @@ void SBArr::inverseDFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC
  * fill in fractional sample error buffer
  * and apply fractional sample correction
  */
-void SBArr::applyfracsamperrcorrection()
+void Subband::applyfracsamperrcorrection()
 {
 
   int status;
@@ -591,7 +591,7 @@ void SBArr::applyfracsamperrcorrection()
  * fill in fringe rotation buffer
  * and apply fringe rotation
  */
-void SBArr::applyfringerotation()
+void Subband::applyfringerotation()
 {
   int status;
   double phase;
@@ -616,7 +616,7 @@ void SBArr::applyfringerotation()
 /*
  * calculate the fractional part of a floating point number
  */
-double SBArr::fraction_of(double val)
+double Subband::fraction_of(double val)
 {
   return val - rint(val - 0.5);
 }

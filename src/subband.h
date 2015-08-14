@@ -1,26 +1,26 @@
 /*
- * sbarr.h
+ * Subband.h
  * VLBI data simulator
  *
  * Author: Zheng Meyer-Zhao
  * 2013/11/04
  */
 
-#ifndef __SBARR_H__
-#define __SBARR_H__
+#ifndef __Subband_H__
+#define __Subband_H__
 
 #include <string>
 #include <fstream>
 #include "architecture.h"
 #include "model.h"
 
-class SBArr{
+class Subband{
   public:
     // constructor and destructor
-    SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
+    Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
           size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth,
           std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose);
-    ~SBArr();
+    ~Subband();
 
     // access methods
     inline size_t const getstartIdx() const { return d_startIdx; }
@@ -170,7 +170,7 @@ class SBArr{
     void inverseDFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf);
 };
 
-#endif /* __SBARR_H__ */
+#endif /* __Subband_H__ */
 
 /*
  * eof

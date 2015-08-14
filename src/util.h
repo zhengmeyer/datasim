@@ -14,12 +14,33 @@
 #include <cstdlib>
 #include <gsl/gsl_randist.h>
 #include "configuration.h"
-#include "sbarr.h"
+#include "subband.h"
 
 /* parameters used for random number generation */
 #define MEAN 1.0
 #define STDEV 1.0
 #define SEED 48573
+
+
+typedef struct setup {
+  int verbose;
+  int test;                     // test mode
+  float sfluxdensity;           // source flux density in Jansky
+  vector<unsigned int> antSEFDs;// antenna SEFD
+  std::string inputfilename;    // .input file name
+} setup;
+
+/*
+ * Initialize subbands of all antennas
+ */
+int initSubbands(Configuration* config, int configindex, float specRes, 
+                  float minStartFreq, vector<Subband*> &subbands, Model* model,
+                  float tdur, setup setupinfo);
+
+/*
+ * free subbands of all antennas
+ */
+void freeSubbands(vector<Subband*> &subbands);
 
 /*
  * Check whether the fractional part of a floating point number is 0
@@ -52,13 +73,13 @@ void gencplx(cf32* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbo
 /*
  * Generate TDUR time signal for all subband of all antennas
  */
-void genSignal(size_t stdur, cf32* commFreqSig, vector<SBArr*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float sfluxdensity, size_t verbose);
+void genSignal(size_t stdur, cf32* commFreqSig, vector<Subband*>& sbVec, int numSamps, gsl_rng *rng_inst, float tdur, float sfluxdensity, size_t verbose);
 /*
  * loop through each subband of each antenna
  * move data from the second half of the array to the first half
  * set the process pointer to the proper location
  */
-void movedata(vector<SBArr*>& sbVec, size_t verbose);
+void movedata(vector<Subband*>& sbVec, size_t verbose);
 /*
  * loop through each subband of each antenna
  * select vdif packet size of data to process
@@ -66,11 +87,11 @@ void movedata(vector<SBArr*>& sbVec, size_t verbose);
  * quantization
  * pack to vdif
  */
-int processAndPacketize(size_t framespersec, vector<SBArr*>& sbVec, Model* model, size_t verbose);
+int processAndPacketize(size_t framespersec, vector<Subband*>& sbVec, Model* model, size_t verbose);
 /*
  * calculate the lowest process pointer among all subband arrays
  */
-double getMinProcPtrTime(vector<SBArr*>& sbVec, size_t verbose);
+double getMinProcPtrTime(vector<Subband*>& sbVec, size_t verbose);
 
 #endif /* __UTIL_H__ */
 

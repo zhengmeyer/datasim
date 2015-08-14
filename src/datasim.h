@@ -24,14 +24,6 @@
 
   #define SEFD 1000
 
-  typedef struct setup {
-    int verbose;
-    int test;                     // test mode
-    float sfluxdensity;           // source flux density in Jansky
-    vector<unsigned int> antSEFDs;// antenna SEFD
-    std::string inputfilename;    // .input file name
-  } setup;
-
 #endif /* __DATASIM_H__ */
 
 /*
