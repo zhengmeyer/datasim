@@ -1,3 +1,4 @@
 Limitations:
 1. 2-bits sampling
 2. Only generate single-thread multi-channel VDIF
+3. Default SEFD for 3 antennas

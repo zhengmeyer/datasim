@@ -11,6 +11,7 @@
   
   #include <cstdint>
   #include <string>
+  #include <vector>
 
   #define EPSILON 1e-6
 
@@ -21,10 +22,13 @@
   #define ISCOMPLEX 0
   #define BITSPERBYTE 8
 
+  #define SEFD 1000
+
   typedef struct setup {
     int verbose;
     int test;                     // test mode
     float sfluxdensity;           // source flux density in Jansky
+    vector<unsigned int> antSEFDs;// antenna SEFD
     std::string inputfilename;    // .input file name
   } setup;
 

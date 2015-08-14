@@ -17,7 +17,7 @@
 class SBArr{
   public:
     // constructor and destructor
-    SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx,size_t const &sbIdx,
+    SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
           size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth,
           std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose);
     ~SBArr();
@@ -95,6 +95,7 @@ class SBArr{
     size_t d_blksize;         // block size to copy from startIdx
     size_t d_length;          // size of the subband array for 2*TDUR time
     size_t d_antIdx;          // antenna index the subband belongs to
+    size_t d_antSEFD;         // antenna SEFD in Jansky
     size_t d_sbIdx;           // subband index
     size_t d_vpbytes;         // number of bytes in a vdif packet, including VDIF header
     size_t d_vpsamps;          // number of samples in a vdif packet
@@ -153,6 +154,7 @@ class SBArr{
     void copyToTemp(Ipp32fc* commFreqSig);
     void mulsfluxdensity(float sfluxdensity);
     void addstationnoise(gsl_rng *rng_inst);
+    void normalizesignal(float sfluxdensity);
     void applyfilter();
     void copyToArr();
 

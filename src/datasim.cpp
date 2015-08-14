@@ -34,6 +34,10 @@ static void usage(int argc, char **argv)
   cout << "     -f" << endl;
   cout << "     --flux        source flux density in Jansky (default is 1 Jy)." << endl;
   cout << endl;
+  cout << "     -s" << endl;
+  cout << "     --sefd        antenna SEFDs in a comma-seperated list in Jansky. If there are more antennas than provided SEFDs, " << "\n"
+       << "                   SEFD of the remaining antennas is set to 1000 Jansky." << endl;
+  cout << endl;
   cout << "     -v" << endl;
   cout << "     --verbose     increase the verbosity of the output; -v -v for more." << endl;
   cout << endl;
@@ -46,7 +50,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
 {
   char tmp;
 
-  while((tmp=getopt(argc,argv,"hf:vt"))!=-1)
+  while((tmp=getopt(argc,argv,"hf:s:vt"))!=-1)
   {
     switch(tmp)
     {
@@ -62,6 +66,20 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
         }
         else
           setupinfo.sfluxdensity = atof(optarg);
+        break;
+      case 's':
+        if(*optarg == '-' || *optarg == ' ')
+        {
+          cerr << "Option -s requires a comma-separated list of unsigned integer as argument." << endl;
+          exit (EXIT_FAILURE);
+        }
+        else
+        {
+          istringstream ss(optarg);
+          string token;
+          while(getline(ss, token, ','))
+            setupinfo.antSEFDs.push_back(stoi(token));
+        }
         break;
       case 'v':
         setupinfo.verbose++;
@@ -96,7 +114,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
      
 int initVecSBArr(Configuration* config, int configindex, float specRes, 
                   float minStartFreq, vector<SBArr*> &sbVec, Model* model,
-                  float tdur, int verbose)
+                  float tdur, setup setupinfo)
 {
   size_t length, startIdx, blksize;
   size_t vpsamps;   // number of samples in a vdif packet
@@ -113,7 +131,7 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
   
   mjd = config->getStartMJD();
   seconds = config->getStartSeconds();
-  if(verbose >= 1)
+  if(setupinfo.verbose >= 1)
   {
     cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
   }
@@ -131,7 +149,7 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
     antname = config->getTelescopeName(i);
     // change the last character of the output vdif name to lower case for fourfit postprocessing
     antname.back() = tolower(antname.back());
-    if(verbose >= 1)
+    if(setupinfo.verbose >= 1)
     { 
       cout << "Antenna " << i << endl;
       cout << " framebytes is " << framebytes << endl;
@@ -143,7 +161,7 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
     // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
     model->calculateDelayInterpolator(0, 0, vptime*1e-6, 1, i, 0, 1, tempcoeffs);
     model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, vptime*1e-6, 1, i, 0, 1, delaycoeffs);
-    if(verbose >= 2)
+    if(setupinfo.verbose >= 2)
     {
       cout << "delay in us for datastream " << i << " at offsettime 0s is " << tempcoeffs[1] << endl;
       cout << "delay in us for datastream " << i << " at offsettime " << tempcoeffs[1]*1e-6 << "s " << " is " << delaycoeffs[1] << endl;
@@ -167,10 +185,11 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
       }
       else
         startIdx = (freq - minStartFreq) / specRes;
+      
       blksize = bw / specRes; // number of samples to copy from startIdx
       length = bw * tdur * 2; // size of the array twice of tdur
 
-      if(verbose >= 1)
+      if(setupinfo.verbose >= 1)
       {
         cout << "Ant " << i << " subband " << j << ":" << endl
              << "  start index is " << startIdx << endl 
@@ -180,7 +199,7 @@ int initVecSBArr(Configuration* config, int configindex, float specRes,
              << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
              << "  recorded freq is " << freq << endl;
       }
-      sbVec.push_back(new SBArr(startIdx, blksize, length, i, j, vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, verbose));
+      sbVec.push_back(new SBArr(startIdx, blksize, length, i, setupinfo.antSEFDs[i], j, vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose));
     }
   } 
 
@@ -209,15 +228,14 @@ int main(int argc, char* argv[])
   setup setupinfo;
   setupinfo.verbose = 0;
   setupinfo.test = 0;
-  setupinfo.sfluxdensity = 1;   // source flux density in Jansky
-  setupinfo.inputfilename = "";  // .input file name
+  setupinfo.sfluxdensity = 1;     // source flux density in Jansky
+  setupinfo.inputfilename = "";   // .input file name
 
   // parse command line argument
   cmdparser(argc, argv, setupinfo);
 
   float tdur = 0.5 * 1e6;
   float testdur = 1; // time duration of test mode
-
   Configuration* config;
   Model* model;
   float dur;                            // duration of the simulated data in seconds
@@ -250,6 +268,10 @@ int main(int argc, char* argv[])
   cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
        << "source flux density is " << setupinfo.sfluxdensity << endl;
 
+  size_t len = setupinfo.antSEFDs.size();
+  for(int i = len; i < numdatastreams; i++)
+    setupinfo.antSEFDs.push_back(SEFD);
+
   for(int i = 0; i < numdatastreams; i++)
   {
     framespersec = config->getFramesPerSecond(configindex, i);
@@ -261,8 +283,10 @@ int main(int argc, char* argv[])
     }
     numrecordedbands = config->getDNumRecordedBands(configindex, i);
 
-    cout << "Telescope " << config->getTelescopeName(i) << " has " << numrecordedbands << " recorded bands" << endl;
-    cout << " Number of frames per second is " << framespersec << endl;
+    cout << "Telescope " << config->getTelescopeName(i) "\n"
+         << " Number of recorded band(s) is " << numrecordedbands << "\n"
+         << " Antenna SEFD is " << setupinfo.antSEFDs.at(i) << "\n"
+         << " Number of frames per second is " << framespersec << endl;
 
     for(int j = 0; j < numrecordedbands; j++)
     {
@@ -300,7 +324,7 @@ int main(int argc, char* argv[])
   minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
 
   // create and initialize array for each subband of each antenna
-  if(initVecSBArr(config, configindex, specRes, minStartFreq, sbVec, model, tdur, setupinfo.verbose)
+  if(initVecSBArr(config, configindex, specRes, minStartFreq, sbVec, model, tdur, setupinfo)
       != EXIT_SUCCESS)
   {
     cout << "Failed to initialize Subband Array ..." << endl;

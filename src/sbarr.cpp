@@ -25,10 +25,10 @@ using namespace std;
 /*
  * Constructor
  */
-SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, size_t const &sbIdx,
+SBArr::SBArr(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
              size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth, string const &antname,
              int const &mjd, int const &seconds, float const &freq, size_t const &verbose)
-  : d_startIdx(startIdx), d_blksize(blksize), d_length(length), d_antIdx(antIdx), d_sbIdx(sbIdx),
+  : d_startIdx(startIdx), d_blksize(blksize), d_length(length), d_antIdx(antIdx), d_antSEFD(antSEFD), d_sbIdx(sbIdx),
     d_vpbytes(vpbytes), d_vpsamps(vpsamps), d_bandwidth(bandwidth), d_antname(antname),
     d_mjd(mjd), d_seconds(seconds), d_freq(freq), d_verbose(verbose)
 {
@@ -170,6 +170,7 @@ void SBArr::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxde
   copyToTemp(commFreqSig);
   mulsfluxdensity(sfluxdensity);
   addstationnoise(rng_inst);
+  normalizesignal(sfluxdensity);
   applyfilter();
 
   // value at DC should be zero
@@ -433,17 +434,29 @@ void SBArr::addstationnoise(gsl_rng *rng_inst)
     cout << "Adding station noise for ant " << d_antIdx << " subband " << d_sbIdx << endl;
 
   cf32* noise = vectorAlloc_cf32(d_blksize);
-  // generate station noise
-  gencplx(noise, d_blksize, STDEV + d_antIdx + 1, rng_inst, d_verbose);
+  // generate station noise with the same variance as the common signal
+  gencplx(noise, d_blksize, STDEV, rng_inst, d_verbose);
 
   // add station noise to d_temp
   for(size_t idx = 0; idx < d_blksize; idx++)
   {
-    d_temp[idx].re += noise[idx].re;
-    d_temp[idx].im += noise[idx].im;
+    d_temp[idx].re += sqrt(d_antSEFD) * noise[idx].re;
+    d_temp[idx].im += sqrt(d_antSEFD) * noise[idx].im;
   }
 
   vectorFree(noise);
+}
+
+/*
+ * Signal normalization based on source flux density and antenna SEFD
+ */
+void SBArr::normalizesignal(float sfluxdensity)
+{
+  for(size_t idx = 0; idx < d_blksize; idx++)
+  {
+    d_temp[idx].re /= sqrt(sfluxdensity + d_antSEFD);
+    d_temp[idx].im /= sqrt(sfluxdensity + d_antSEFD);
+  }
 }
 
 /*
