@@ -23,8 +23,8 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include "architecture.h"
 #include "vdifio.h"
+#include "architecture.h"
 #include "util.h"
 #include "subband.h"
 #include "datasim.h"

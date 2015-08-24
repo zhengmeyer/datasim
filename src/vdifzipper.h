@@ -20,7 +20,10 @@
 #define __VDIFZIPPER_H__
 
 #include "configuration.h"
-#include "datasim.h"
+
+#define BITS 2
+#define ISCOMPLEX 0
+#define BITSPERBYTE 8
 
 void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose);
 
