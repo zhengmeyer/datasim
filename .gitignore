@@ -1,2 +1,12 @@
 *.o
 src/datasim
+.deps
+/autom4te.cache
+/aclocal.m4
+/stamp-h1
+/autoscan.log
+/config.log
+/config.log.in
+/config.log.in~
+Makefile
+Makefile.in
