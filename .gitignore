@@ -5,8 +5,14 @@ src/datasim
 /aclocal.m4
 /stamp-h1
 /autoscan.log
+/config.h
 /config.log
 /config.h.in
 /config.h.in~
+/missing
+/depcomp
+/install-sh
+/compile
+/configure
 Makefile
 Makefile.in
