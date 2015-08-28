@@ -31,6 +31,7 @@
 #include "subband.h"
 #include "datasim.h"
 #include "model.h"
+#include "vdifzipper.h"
 
 using namespace std;
 
