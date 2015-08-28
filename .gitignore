@@ -6,7 +6,7 @@ src/datasim
 /stamp-h1
 /autoscan.log
 /config.log
-/config.log.in
-/config.log.in~
+/config.h.in
+/config.h.in~
 Makefile
 Makefile.in
