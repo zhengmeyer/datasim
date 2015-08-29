@@ -9,6 +9,7 @@ src/datasim
 /config.log
 /config.h.in
 /config.h.in~
+/config.status
 /missing
 /depcomp
 /install-sh
