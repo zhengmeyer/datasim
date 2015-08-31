@@ -24,6 +24,7 @@
 #include <vector>
 #include <string>
 #include <gsl/gsl_randist.h>
+#include <getopt.h>
 #include "configuration.h"
 #include "datasim.h"
 #include "util.h"
@@ -47,22 +48,37 @@ static void usage(int argc, char **argv)
   cout << "     --flux        source flux density in Jansky (default is 1 Jy)." << endl;
   cout << endl;
   cout << "     -s" << endl;
-  cout << "     --sefd        antenna SEFDs in a comma-seperated list in Jansky. If there are more antennas than provided SEFDs, " << "\n"
+  cout << "     --sefd        antenna SEFDs in a comma-seperated list in Jansky.\n"
+       << "                   If there are more antennas than provided SEFDs,\n"
        << "                   SEFD of the remaining antennas is set to 1000 Jansky." << endl;
+  cout << endl;
+  cout << "     -d" << endl;
+  cout << "     --seed        random number generator seed." << endl;
   cout << endl;
   cout << "     -v" << endl;
   cout << "     --verbose     increase the verbosity of the output; -v -v for more." << endl;
   cout << endl;
   cout << "     -t" << endl;
-  cout << "     --test        run in test mode, generate 1 second data for each station no matter what's given in the configuration file." << endl;
+  cout << "     --test        run in test mode, generate 1 second data for each station,\n"
+       << "                   no matter what's given in the configuration file." << endl;
   cout << endl;
 }
 
 static void cmdparser(int argc, char* argv[], setup &setupinfo)
 {
   char tmp;
-
-  while((tmp=getopt(argc,argv,"hf:s:vt"))!=-1)
+  static struct option long_options[] = {
+    {"help",    no_argument,        0,  'h'},
+    {"flux",    required_argument,  0,  'f'},
+    {"sefd",    required_argument,  0,  's'},
+    {"seed",    required_argument,  0,  'd'},
+    {"verbose", no_argument,        0,  'v'},
+    {"test",    no_argument,        0,  't'},
+    {0,         0,                  0,   0 }
+  };
+  int long_index = 0;
+  while((tmp=getopt_long(argc,argv,"hf:s:d:vt",
+              long_options, &long_index)) != -1)
   {
     switch(tmp)
     {
@@ -91,6 +107,17 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
           string token;
           while(getline(ss, token, ','))
             setupinfo.antSEFDs.push_back(stoi(token));
+        }
+        break;
+      case 'd':
+        if(*optarg == '-' || *optarg == ' ')
+        {
+          cerr << "Option -d requires an unsigned integer as argument." << endl;
+          exit (EXIT_FAILURE);
+        }
+        else
+        {
+          setupinfo.seed = atoi(optarg);
         }
         break;
       case 'v':
@@ -129,6 +156,7 @@ int main(int argc, char* argv[])
   setup setupinfo;
   setupinfo.verbose = 0;
   setupinfo.test = 0;
+  setupinfo.seed = SEED;
   setupinfo.sfluxdensity = 1;     // source flux density in Jansky
   setupinfo.inputfilename = "";   // .input file name
 
@@ -156,7 +184,7 @@ int main(int argc, char* argv[])
   gsl_rng *rng_inst;
   gsl_rng_env_setup();
   rng_inst = gsl_rng_alloc(gsl_rng_ranlux389);
-  gsl_rng_set(rng_inst, SEED);
+  gsl_rng_set(rng_inst, setupinfo.seed);
 
   config = new Configuration(setupinfo.inputfilename.c_str(), 0);
   model = config->getModel();
@@ -167,7 +195,8 @@ int main(int argc, char* argv[])
 
   numdatastreams = config->getNumDataStreams();
   cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
-       << "source flux density is " << setupinfo.sfluxdensity << endl;
+       << "source flux density is " << setupinfo.sfluxdensity << ".\n"
+       << "random number generator seed is " << setupinfo.seed << endl;
 
   size_t len = setupinfo.antSEFDs.size();
   for(int i = len; i < numdatastreams; i++)

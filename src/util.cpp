@@ -251,12 +251,7 @@ float getMinStartFreq(Configuration* config, int configindex, size_t verbose)
 }
 
 /*
- * Generate complex numbers using IPP Library
- * @cpDst Destination array where data will be store
- * @len   number of complex samples to generate
- * @mean  MEAN
- * @stdev standard deviation
- * @pSeed SEED
+ * Generate complex numbers using GSL
  */
 void gencplx(cf32* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbose)
 {

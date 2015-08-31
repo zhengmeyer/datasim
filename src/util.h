@@ -35,6 +35,7 @@
 typedef struct setup {
   int verbose;
   int test;                     // test mode
+  unsigned int seed;            // random number generator seed
   float sfluxdensity;           // source flux density in Jansky
   vector<unsigned int> antSEFDs;// antenna SEFD
   std::string inputfilename;    // .input file name
