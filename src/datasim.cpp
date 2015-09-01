@@ -90,7 +90,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
           istringstream ss(optarg);
           string token;
           while(getline(ss, token, ','))
-            setupinfo.antSEFDs.push_back(stoi(token));
+            setupinfo.antSEFDs.push_back(atoi(token.c_str()));
         }
         break;
       case 'v':

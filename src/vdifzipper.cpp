@@ -22,7 +22,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-#include <cstdint>
+#include <stdint.h>
 #include "architecture.h"
 #include "configuration.h"
 #include "vdifio.h"
@@ -73,7 +73,8 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, i);
     antname = config->getTelescopeName(i);
     // change the last character of the output vdif name to lower case for fourfit postprocessing
-    antname.back() = tolower(antname.back());
+    //antname.back() = tolower(antname.back());
+    antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
 
     chvpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
     numsampsperframe = (chvpbytes - VDIF_HEADER_BYTES) * BITSPERBYTE / BITS;
@@ -116,7 +117,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     try
     {
       // open multi-channel vdif file to write to
-      outputvdif.open(antname + ".vdif", ios::binary);
+      outputvdif.open((antname + ".vdif").c_str(), ios::binary);
       if(verbose >= 2)
       {
         cout << " Opened " << antname << ".vdif for writing ..." << endl;
@@ -128,7 +129,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
         ss << ch;
         ostringstream filename;
         filename << antname << "_" << ss.str() << ".vdif";
-        chfile[ch].open(filename.str(), ios::binary);
+        chfile[ch].open(filename.str().c_str(), ios::binary);
         if(verbose >= 2)
         {
           cout << " Opened input file " << filename.str() << endl;         

@@ -83,7 +83,7 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
   ss << d_sbIdx;
   d_filename = d_antname + "_" + ss.str() + ".vdif"; 
   // open the output stream
-  d_vdiffile.open(d_filename); 
+  d_vdiffile.open(d_filename.c_str()); 
   if(d_verbose >= 1) cout << "Open VDIF output file stream " << d_filename << endl;
  
   // allocate memory for d_arr

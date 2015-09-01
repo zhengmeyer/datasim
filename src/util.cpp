@@ -67,7 +67,8 @@ int initSubbands(Configuration* config, int configindex, float specRes,
     vptime = 1.0 * 1e6 / framespersec;
     antname = config->getTelescopeName(i);
     // change the last character of the output vdif name to lower case for fourfit postprocessing
-    antname.back() = tolower(antname.back());
+    //antname.back() = tolower(antname.back());
+    antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
     if(setupinfo.verbose >= 1)
     { 
       cout << "Antenna " << i << endl;

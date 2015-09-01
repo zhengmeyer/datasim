@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.69])
+AC_PREREQ([2.63])
 AC_INIT([datasim], [1.0], [zheng.meyer@gmail.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/util.cpp])
@@ -18,7 +18,7 @@ AC_CHECK_LIB([gslcblas], [cblasdsdot])
 AC_CHECK_LIB([mpifxcorr], [calculateDelayInterpolator])
 
 # Use C++11
-AX_CXX_COMPILE_STDCXX_11([ext],[mandatory])
+AX_CXX_COMPILE_STDCXX_0X([ext],[mandatory])
 
 PKG_CHECK_MODULES(VDIFIO, vdifio >= 1.0)
 PKG_CHECK_MODULES(DIFXMESSAGE, [difxmessage >= 2.4.0 difxmessage < 7])
@@ -29,7 +29,7 @@ PKG_CHECK_MODULES(MARK5ACCESS, mark5access >= 1.5.1)
 AC_CHECK_HEADERS([unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_CHECK_HEADER_STDBOOL
+#AC_CHECK_HEADER_STDBOOL
 AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_TYPE_UINT8_T

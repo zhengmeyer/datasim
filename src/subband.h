@@ -23,6 +23,7 @@
 
 #include <string>
 #include <fstream>
+#include <stdint.h>
 #include "architecture.h"
 #include "model.h"
 
