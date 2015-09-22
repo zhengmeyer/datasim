@@ -9,5 +9,6 @@ Limitations:
 1. 2-bits sampling
 2. Only generate single-thread multi-channel VDIF
 3. Default SEFD for 3 antennas
+4. VDIF packet of all antennas need to repsent the same time length
 
 Installation:

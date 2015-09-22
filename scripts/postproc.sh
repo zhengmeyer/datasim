@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage ./postproc.sh 7002 M87
-[ $# -eq 2 ] || { echo "Usage: ./postproc.sh expr expNum source"
+[ $# -eq 3 ] || { echo "Usage: ./postproc.sh expr expNum source"
 echo "(e.g. ./postproc.sh datasim 7002 M87)" ; exit 1 ; }
 
 # remove directory .difx and expNum if exist

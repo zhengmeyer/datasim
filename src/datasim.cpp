@@ -175,9 +175,12 @@ int main(int argc, char* argv[])
   int stime;                            // step time in microsecond == time block
   int configindex = 0;
   cf32* commFreqSig;                    // 0.5 seconds common frequency domain signal
-  vector<Subband*> subbands;                 // vector of subband arrays
+  vector<Subband*> subbands;            // vector of subband arrays
 
-  double timer = 0.0, tt, vptime;       // vptime is the time duration of the samples within the packet
+  double timer = 0.0, tt;               
+  double vptime = -1.0;                 // vptime is the time duration of the samples within the packet
+  double prevptime;
+  bool samevptime = TRUE;
   size_t framespersec;
 
   // initialize random number generator
@@ -205,10 +208,18 @@ int main(int argc, char* argv[])
   for(int i = 0; i < numdatastreams; i++)
   {
     framespersec = config->getFramesPerSecond(configindex, i);
+    if((int)vptime != -1)
+      prevptime = vptime;
     vptime = 1.0 * 1e6 / framespersec;
     if(!is_integer(vptime))
     {
       cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
+      return EXIT_FAILURE;
+    }
+    samevptime = ((int)prevptime == (int)vptime)
+    if(!samevptime)
+    {
+      cout << "The time represented by the VDIF packet of all antennas is not the same!! DataSim doesn't support this case yet!" << endl;
       return EXIT_FAILURE;
     }
     numrecordedbands = config->getDNumRecordedBands(configindex, i);
