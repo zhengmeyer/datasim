@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage ./postproc.sh 7002 M87
+# usage ./postproc.sh datasim 7002 M87
 [ $# -eq 3 ] || { echo "Usage: ./postproc.sh expr expNum source"
 echo "(e.g. ./postproc.sh datasim 7002 M87)" ; exit 1 ; }
 
