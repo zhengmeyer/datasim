@@ -142,18 +142,18 @@ export force='--force'
 [ -n "$SUBINT"    ] || export SUBINT=32000000
 
 comment="
-# Variables:
- mjdStart=$mjdStart
+  # Variables:
+  mjdStart=$mjdStart
   mjdStop=$mjdStop
-scanStart=$scanStart
- scanStop=$scanStop
- scanName=$scanName
-   target=$target
-   FFTRES=$FFTRES
+  scanStart=$scanStart
+  scanStop=$scanStop
+  scanName=$scanName
+  target=$target
+  FFTRES=$FFTRES
   SPECRES=$SPECRES
-     NINT=$NINT
-   SUBINT=$SUBINT
-    force=$force
+  NINT=$NINT
+  SUBINT=$SUBINT
+  force=$force
 "
 # echo "$comment"
 # $verb && echo "# St_info: $st_info"
