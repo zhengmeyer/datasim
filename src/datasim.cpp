@@ -180,7 +180,7 @@ int main(int argc, char* argv[])
   double timer = 0.0, tt;               
   double vptime = -1.0;                 // vptime is the time duration of the samples within the packet
   double prevptime;
-  bool samevptime = TRUE;
+  bool samevptime = true;
   size_t framespersec;
 
   // initialize random number generator
@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
       cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
       return EXIT_FAILURE;
     }
-    samevptime = ((int)prevptime == (int)vptime)
+    samevptime = ((int)prevptime == (int)vptime);
     if(!samevptime)
     {
       cout << "The time represented by the VDIF packet of all antennas is not the same!! DataSim doesn't support this case yet!" << endl;
