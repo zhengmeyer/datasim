@@ -179,8 +179,6 @@ int main(int argc, char* argv[])
 
   double timer = 0.0, tt;               
   double vptime;                        // vptime is the time duration of the samples within the packet
-  double prevptime;
-  bool samevptime = true;
   size_t framespersec;
 
   // initialize random number generator
