@@ -314,7 +314,7 @@ do
     fmt=`echo $fmt | tr / _`
     cat >> $exper.vex.obs <<....EOF
     * station $st
-    ref \$FREQ = $fmt-FREQ:$st;
+    ref \$FREQ = $fmt-FREQ_$st:$st;
     ref \$BBC = $fmt-BBC:$st;
     ref \$IF = $fmt-IF:$st;
 ....EOF
@@ -425,7 +425,7 @@ do
 		st=$1 name=$2 fmt=$3 bw=$4 das=$5
 		fmt=`echo $fmt | tr / _`
     cat >> $exper.vex.obs <<..EOF
-    def $fmt-FREQ;
+    def $fmt-FREQ_$st;
       *
 ..EOF
   for i in $(eval echo {1..$((das))})
@@ -532,20 +532,20 @@ EOF
 #
 
 echo '' ; echo '%%% creating inputs' ; echo ''
-echo \
-vex2difx $force $job.v2d
-vex2difx $force $job.v2d
-
-[ -f $sob.input ] || {
-    echo vex2difx did not like your v2d/vex file combination
-    echo $wdir/$exper.vex.obs
-    echo $wdir/$job.v2d
-    exit 1
-}
-
-echo \
-calcif2 $sob.input
-calcif2 $sob.input
+#echo \
+#vex2difx $force $job.v2d
+#vex2difx $force $job.v2d
+#
+#[ -f $sob.input ] || {
+#    echo vex2difx did not like your v2d/vex file combination
+#    echo $wdir/$exper.vex.obs
+#    echo $wdir/$job.v2d
+#    exit 1
+#}
+#
+#echo \
+#calcif2 $sob.input
+#calcif2 $sob.input
 
 #
 # eof
