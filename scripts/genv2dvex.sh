@@ -10,9 +10,6 @@ fdir=`dirname $file`
 #echo $fdir
 
 verb=${VERB-'false'}
-# ZOOM is false by default
-zoom=${ZOOM-'false'}
-echo $zoom
 
 export ENUM=7000
 
@@ -258,11 +255,6 @@ ANTENNA $st
    format = $fmt
    phaseCalInt = ${PHASECALINT-0}
 ....EOF
-    if [ "$zoom" = "true" ]; then
-    cat >> $job.v2d <<-....EOF   
-    zoom = zoomband
-....EOF
-    fi
     cat >> $job.v2d <<-....EOF
 }
 ....EOF
@@ -270,15 +262,6 @@ ANTENNA $st
     file=''
     shift $st_shift
 done
-if [ "$zoom" = "true" ]; then
-cat >> $job.v2d <<-EOF
-ZOOM zoomband
-{
-   addZoomMatch = 4
-}
-
-EOF
-fi
 
 #[ -n "$v2dcomment" ] && echo "$v2dcomment" >> $job.v2d
 #[ -n "$formats" ] && echo "$formats" | sed 's/^/# /' >> $job.v2d
