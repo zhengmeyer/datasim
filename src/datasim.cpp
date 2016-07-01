@@ -178,7 +178,7 @@ int main(int argc, char* argv[])
   vector<Subband*> subbands;            // vector of subband arrays
 
   double timer = 0.0, tt;               
-  double vptime = -1.0;                 // vptime is the time duration of the samples within the packet
+  double vptime;                        // vptime is the time duration of the samples within the packet
   double prevptime;
   bool samevptime = true;
   size_t framespersec;
@@ -205,23 +205,20 @@ int main(int argc, char* argv[])
   for(int i = len; i < numdatastreams; i++)
     setupinfo.antSEFDs.push_back(SEFD);
 
+  // use framespersec of the first antenna to calculate vptime
+  // use this vptime as time reference
+  framespersec = config->getFramesPerSecond(configindex, 0);
+  vptime = 1.0 * 1e6 / framespersec;
+  if(!is_integer(vptime))
+  {
+    cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
+    return EXIT_FAILURE;
+  }
+
   for(int i = 0; i < numdatastreams; i++)
   {
     framespersec = config->getFramesPerSecond(configindex, i);
-    if((int)vptime != -1)
-      prevptime = vptime;
-    vptime = 1.0 * 1e6 / framespersec;
-    if(!is_integer(vptime))
-    {
-      cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
-      return EXIT_FAILURE;
-    }
-    samevptime = ((int)prevptime == (int)vptime);
-    if(!samevptime)
-    {
-      cout << "The time represented by the VDIF packet of all antennas is not the same!! DataSim doesn't support this case yet!" << endl;
-      return EXIT_FAILURE;
-    }
+      
     numrecordedbands = config->getDNumRecordedBands(configindex, i);
 
     cout << "Telescope " << config->getTelescopeName(i) << "\n"
