@@ -2,6 +2,7 @@ Requirements:
 *DiFX-2.4 or above
 *GSL
 *GSLCBLAS
+*automake autoconf libtool
 
 Description:
 
@@ -12,7 +13,15 @@ Limitations:
 4. VDIF packet of all antennas need to repsent the same time length
 
 Installation:
-coming soon ...
+
+$ libtoolize --force
+$ aclocal
+$ autoheader
+$ automake --force-missing --add-missing
+$ autoconf
+$ ./configure --prefix=$HOME
+$ make
+$ make install
 
 Usage:
 1. source DiFX setup.bash file
@@ -22,4 +31,5 @@ Usage:
 5. in the directory of the generated v2d and VEX file, 
    create simulated .vdif data:
    'datasim -f 100 -s 1000,2000,3000 -d 12345 datasim_7004.input'
-   where -f is the source flux density, -s is a list of antenna SEFDs, -d is the random number seed
+   where -f is the source flux density, -s is a list of antenna SEFDs,
+   -d is the random number seed
