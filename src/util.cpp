@@ -119,7 +119,8 @@ int initSubbands(Configuration* config, int configindex, float specRes,
              << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
              << "  recorded freq is " << freq << endl;
       }
-      subbands.push_back(new Subband(startIdx, blksize, length, i, setupinfo.antSEFDs[i], j, vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose));
+      subbands.push_back(new Subband(startIdx, blksize, length, i, setupinfo.antSEFDs[i], j, 
+                         vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose));
     }
   } 
 

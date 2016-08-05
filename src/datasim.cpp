@@ -34,6 +34,8 @@
 #include "model.h"
 #include "vdifzipper.h"
 
+#define MASTER 0
+
 using namespace std;
 
 static void usage(int argc, char **argv)
@@ -199,19 +201,33 @@ int main(int argc, char* argv[])
   // initialize MPI
   MPI_Init(&argc, &argv);
 
-  setup setupinfo;
-  setupinfo.verbose = 0;
-  setupinfo.test = 0;
-  setupinfo.seed = SEED;
-  setupinfo.sfluxdensity = 1;     // source flux density in Jansky
-  setupinfo.inputfilename = "";   // .input file name
-  for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
-    setupinfo.linesignal[i] = 0;
-  for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
-    setupinfo.injectionsignal[i] = 0;
+  int numprocs, myid;
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-  // parse command line argument
-  cmdparser(argc, argv, setupinfo);
+  setup setupinfo;
+
+  // master parse command line argument
+  // and send struct setupinfo to all worker processes
+  if(myid == MASTER)
+  {
+    setupinfo.verbose = 0;
+    setupinfo.test = 0;
+    setupinfo.seed = SEED;
+    setupinfo.sfluxdensity = 1;     // source flux density in Jansky
+    setupinfo.inputfilename = "";   // .input file name
+    for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
+      setupinfo.linesignal[i] = 0;
+    for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
+      setupinfo.injectionsignal[i] = 0;
+
+    // parse command line argument
+    cmdparser(argc, argv, setupinfo);
+  }
+
+  // MPI_Type_create_struct
+  // broadcast setupinfo
+  // MPI_Bcast
 
   float tdur = 0.5 * 1e6;
   float testdur = 1; // time duration of test mode
@@ -235,7 +251,7 @@ int main(int argc, char* argv[])
   gsl_rng *rng_inst;
   gsl_rng_env_setup();
   rng_inst = gsl_rng_alloc(gsl_rng_ranlux389);
-  gsl_rng_set(rng_inst, setupinfo.seed);
+  gsl_rng_set(rng_inst, setupinfo.seed+myid);
 
   config = new Configuration(setupinfo.inputfilename.c_str(), 0);
   model = config->getModel();
@@ -257,39 +273,44 @@ int main(int argc, char* argv[])
   // use this vptime as time reference
   framespersec = config->getFramesPerSecond(configindex, 0);
   vptime = 1.0 * 1e6 / framespersec;
-  if(!is_integer(vptime))
+
+  // print out information of simulation
+  if(myid == MASTER)
   {
-    cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
-    return EXIT_FAILURE;
-  }
-
-  for(int i = 0; i < numdatastreams; i++)
-  {
-    framespersec = config->getFramesPerSecond(configindex, i);
-      
-    numrecordedbands = config->getDNumRecordedBands(configindex, i);
-
-    cout << "Telescope " << config->getTelescopeName(i) << "\n"
-         << " Number of recorded band(s) is " << numrecordedbands << "\n"
-         << " Antenna SEFD is " << setupinfo.antSEFDs.at(i) << "\n"
-         << " Number of frames per second is " << framespersec << endl;
-
-    for(int j = 0; j < numrecordedbands; j++)
+    if(!is_integer(vptime))
     {
-      freqindex = config->getDRecordedFreqIndex(configindex, i, j); 
-      cout << "Subband " << j << ":" << "\n"
-           << "  Frequency " << config->getFreqTableFreq(freqindex) << "\n"
-           << "  Bandwidth " << config->getFreqTableBandwidth(freqindex) << endl; 
+      cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
+      return EXIT_FAILURE;
     }
-  }
 
-  // general information from model
-  if(setupinfo.verbose >= 1)
-  {
-    cout << "Number of scans is " << model->getNumScans() << endl;
-    cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-    cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-    cout << "vptime in seconds is " << vptime/1e6 << endl;
+    for(int i = 0; i < numdatastreams; i++)
+    {
+      framespersec = config->getFramesPerSecond(configindex, i);
+        
+      numrecordedbands = config->getDNumRecordedBands(configindex, i);
+
+      cout << "Telescope " << config->getTelescopeName(i) << "\n"
+           << " Number of recorded band(s) is " << numrecordedbands << "\n"
+           << " Antenna SEFD is " << setupinfo.antSEFDs.at(i) << "\n"
+           << " Number of frames per second is " << framespersec << endl;
+
+      for(int j = 0; j < numrecordedbands; j++)
+      {
+        freqindex = config->getDRecordedFreqIndex(configindex, i, j); 
+        cout << "Subband " << j << ":" << "\n"
+             << "  Frequency " << config->getFreqTableFreq(freqindex) << "\n"
+             << "  Bandwidth " << config->getFreqTableBandwidth(freqindex) << endl; 
+      }
+    }
+
+    // general information from model
+    if(setupinfo.verbose >= 1)
+    {
+      cout << "Number of scans is " << model->getNumScans() << endl;
+      cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
+      cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
+      cout << "vptime in seconds is " << vptime/1e6 << endl;
+    }
   }
 
   // calculate specRes, number of samples per time block, step time
@@ -368,8 +389,13 @@ int main(int argc, char* argv[])
   if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
   vectorFree(commFreqSig); 
 
-  // combine VDIF files
-  vdifzipper(config, configindex, durus, setupinfo.verbose);
+
+  // master calls vdifzipper to combine multiple vdif files into one final vdif
+  if(myid == MASTER)
+  {
+    // combine VDIF files
+    vdifzipper(config, configindex, durus, setupinfo.verbose);
+  }
 
   cout << "All data has been generated successfully, bye!" << endl;
 
