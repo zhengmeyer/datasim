@@ -15,3 +15,9 @@ depcomp
 install-sh
 compile
 Makefile.in
+config.guess
+config.sub
+libtool
+ltmain.sh
+m4/
+Makefile.backup
