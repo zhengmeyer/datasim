@@ -25,6 +25,7 @@
 #include <string>
 #include <gsl/gsl_randist.h>
 #include <getopt.h>
+#include <mpi.h>
 #include "configuration.h"
 #include "datasim.h"
 #include "util.h"
@@ -195,6 +196,9 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
 
 int main(int argc, char* argv[])
 {
+  // initialize MPI
+  MPI_Init(&argc, &argv);
+
   setup setupinfo;
   setupinfo.verbose = 0;
   setupinfo.test = 0;
@@ -371,6 +375,8 @@ int main(int argc, char* argv[])
 
   // free random number generator
   gsl_rng_free(rng_inst);
+
+  MPI_Finalize();
 
   return(EXIT_SUCCESS);
 }

@@ -77,7 +77,7 @@ int initSubbands(Configuration* config, int configindex, float specRes,
       cout << " antenna name is " << antname << endl;
     }
 
-    // only consider scan 0 sourc 0
+    // only consider scan 0 source 0
     // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
     model->calculateDelayInterpolator(0, 0, vptime*1e-6, 1, i, 0, 1, tempcoeffs);
     model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, vptime*1e-6, 1, i, 0, 1, delaycoeffs);
