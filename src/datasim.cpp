@@ -161,7 +161,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
         {
           istringstream ss(optarg);
           string token;
-          for(size_t i = 0; i < setupinfo.linesignal.size())
+          for(size_t i = 0; i < setupinfo.injectionsignal.size())
           {
             getline(ss, token, ',')
             setupinfo.injectionsignal[i].push_back(atof(token.c_str()));
