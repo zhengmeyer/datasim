@@ -1,8 +1,11 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#define HAVE_DLFCN_H 1
+
 /* Define to 1 if you have the `floor' function. */
-#define HAVE_FLOOR 1
+/* #undef HAVE_FLOOR */
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -16,20 +19,20 @@
 /* Define to 1 if you have the `mpifxcorr' library (-lmpifxcorr). */
 /* #undef HAVE_LIBMPIFXCORR */
 
+/* 1=has MARK5IPC */
+#define HAVE_MARK5IPC 1
+
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
 /* Define to 1 if you have the `pow' function. */
-#define HAVE_POW 1
+/* #undef HAVE_POW */
 
 /* Define to 1 if you have the `rint' function. */
-#define HAVE_RINT 1
+/* #undef HAVE_RINT */
 
 /* Define to 1 if you have the `sqrt' function. */
-#define HAVE_SQRT 1
-
-/* Define if g++ supports C++0x features. */
-#define HAVE_STDCXX_0X /**/
+/* #undef HAVE_SQRT */
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -52,6 +55,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
+#define LT_OBJDIR ".libs/"
+
 /* Name of package */
 #define PACKAGE "datasim"
 
@@ -66,6 +72,9 @@
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "datasim"
+
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
 
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "1.0"
