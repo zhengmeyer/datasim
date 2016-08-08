@@ -15,7 +15,7 @@ Limitations:
 Installation:
 
 $ libtoolize --force
-$ aclocal
+$ aclocal -l m4
 $ autoheader
 $ automake --force-missing --add-missing
 $ autoconf
