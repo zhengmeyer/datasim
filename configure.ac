@@ -6,7 +6,7 @@ AC_INIT([datasim], [1.0], [zheng.meyer@gmail.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/util.cpp])
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 LT_INIT
@@ -49,5 +49,6 @@ CFLAGS="${CFLAGS} ${DIFXIO_CFLAGS} ${DIFXMESSAGE_CFLAGS} ${MARK5ACCESS_CFLAGS} $
 CXXFLAGS="${CFLAGS}"
 
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile
+                 scripts/Makefile])
 AC_OUTPUT
