@@ -65,12 +65,14 @@ static void usage(int argc, char **argv)
   cout << "     --test        run in test mode, generate 1 second data for each station,\n"
        << "                   no matter what's given in the configuration file." << endl;
   cout << endl;
+  /*
   cout << "     -l" << endl;
   cout << "     --line        line signal in the form of frequency,amplitude." << endl;
   cout << endl;
   cout << "     -i" << endl;
   cout << "     --injection   injection signal in the form of frequency,amplitude." << endl;
   cout << endl;
+  */
 }
 
 static void cmdparser(int argc, char* argv[], setup &setupinfo)
@@ -83,8 +85,8 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
     {"seed",      required_argument,  0,  'd'},
     {"verbose",   no_argument,        0,  'v'},
     {"test",      no_argument,        0,  't'},
-    {"line",      required_argument,  0,  'l'},
-    {"injection", required_argument,  0,  'i'},
+    //{"line",      required_argument,  0,  'l'},
+    //{"injection", required_argument,  0,  'i'},
     {0,           0,                  0,   0 }
   };
   int long_index = 0;
@@ -137,6 +139,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
       case 't':
       setupinfo.test = 1;
       break;
+      /*
       case 'l':
         if(*optarg == '-' || *optarg == ' ')
         {
@@ -147,9 +150,9 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
         {
           istringstream ss(optarg);
           string token;
-          for(size_t i = 0; i < setupinfo.linesignal.size())
+          for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
           {
-            getline(ss, token, ',')
+            getline(ss, token, ',');
             setupinfo.linesignal[i].push_back(atof(token.c_str()));
           }
         }
@@ -166,11 +169,12 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
           string token;
           for(size_t i = 0; i < setupinfo.injectionsignal.size())
           {
-            getline(ss, token, ',')
+            getline(ss, token, ',');
             setupinfo.injectionsignal[i].push_back(atof(token.c_str()));
           }
         }
         break;
+      */
       default:
         usage(argc, argv);
         exit (EXIT_FAILURE);
@@ -216,10 +220,12 @@ int main(int argc, char* argv[])
     setupinfo.seed = SEED;
     setupinfo.sfluxdensity = 1;     // source flux density in Jansky
     setupinfo.inputfilename = "";   // .input file name
+    /*
     for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
       setupinfo.linesignal[i] = 0;
     for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
       setupinfo.injectionsignal[i] = 0;
+    */
 
     // parse command line argument
     cmdparser(argc, argv, setupinfo);
@@ -388,9 +394,9 @@ if(myid == MASTER)
 }
 
 // broadcast tt (maybe also others)
-MPI_Barrier(MPI_COMM_WORLD);
-MPI_Bcast(...);
-MPI_Barrier(MPI_COMM_WORLD);
+//MPI_Barrier(MPI_COMM_WORLD);
+//MPI_Bcast(...);
+//MPI_Barrier(MPI_COMM_WORLD);
 
     // dur is in second
     // durus is in microsecond
@@ -417,11 +423,11 @@ MPI_Barrier(MPI_COMM_WORLD);
   vectorFree(commFreqSig); 
 
 
-  // master calls vdifzipper to combine multiple vdif files into one final vdif
-  if(myid == MASTER)
+  // each datastream calls vdifzipper to combine multiple vdif files into one final vdif
+  if(myid < numdatastreams)
   {
     // combine VDIF files
-    vdifzipper(config, configindex, durus, setupinfo.verbose);
+    vdifzipper(config, configindex, durus, setupinfo.verbose, myid);
   }
 
   cout << "All data has been generated successfully, bye!" << endl;

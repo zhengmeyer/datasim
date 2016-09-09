@@ -39,8 +39,8 @@ typedef struct setup {
   float sfluxdensity;                       // source flux density in Jansky
   vector<unsigned int> antSEFDs;            // antenna SEFD
   std::string inputfilename;                // .input file name
-  vector<float> linesignal[2];              // line signal (sky)
-  vector<vector<float>> injectionsigal;     // injection signal (station)
+  //vector<float> linesignal[2];              // line signal (sky)
+  //vector<vector<float>> injectionsignal;    // injection signal (station)
 } setup;
 
 /*

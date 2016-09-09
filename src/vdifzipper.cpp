@@ -37,7 +37,6 @@ using namespace std;
  */
 void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid)
 {
-  size_t numdatastreams = (size_t)config->getNumDataStreams();
   int mjd, seconds;
   
   cout << "Combine VDIF files of each channel into a single-thread multi-channel VDIF file ..." << endl;
@@ -207,7 +206,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   }
 }
 
-
+/*
 int main(int argc, char* argv[])
 {
   MPI_Init(&argc, &argv);
@@ -233,4 +232,4 @@ int main(int argc, char* argv[])
   MPI_Finalize();
   return 0;
 }
-
+*/
