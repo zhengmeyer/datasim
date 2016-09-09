@@ -304,6 +304,11 @@ void genSignal(size_t stdur, cf32* commFreqSig, vector<Subband*>& sbVec, int num
   for(size_t t = 0; t < stdur; t++)
   {
     gencplx(commFreqSig, numSamps, STDEV, rng_inst, verbose);
+
+    // Master broadcast common signal to each antenna/subband
+
+    // each antenna/subband fabricate its own part of the data
+    
     // loop through each subband array of each antenna
     if(verbose >= 2) cout << "At time " << t << "us:" << endl;
     for(it = sbVec.begin(); it != sbVec.end(); ++it)

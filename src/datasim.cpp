@@ -261,9 +261,6 @@ int main(int argc, char* argv[])
   dur = setupinfo.test ? testdur : config->getExecuteSeconds();
 
   numdatastreams = config->getNumDataStreams();
-  cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
-       << "source flux density is " << setupinfo.sfluxdensity << ".\n"
-       << "random number generator seed is " << setupinfo.seed << endl;
 
   size_t len = setupinfo.antSEFDs.size();
   for(int i = len; i < numdatastreams; i++)
@@ -274,7 +271,7 @@ int main(int argc, char* argv[])
   framespersec = config->getFramesPerSecond(configindex, 0);
   vptime = 1.0 * 1e6 / framespersec;
 
-  // print out information of simulation
+  // print out information of the simulation
   if(myid == MASTER)
   {
     if(!is_integer(vptime))
@@ -282,6 +279,10 @@ int main(int argc, char* argv[])
       cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
       return EXIT_FAILURE;
     }
+
+    cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
+      << "source flux density is " << setupinfo.sfluxdensity << ".\n"
+      << "random number generator seed is " << setupinfo.seed << endl;
 
     for(int i = 0; i < numdatastreams; i++)
     {
@@ -309,19 +310,19 @@ int main(int argc, char* argv[])
       cout << "Number of scans is " << model->getNumScans() << endl;
       cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
       cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-      cout << "vptime in seconds is " << vptime/1e6 << endl;
+      //cout << "vptime in seconds is " << vptime/1e6 << endl; // vptime of the reference antenna
     }
   }
 
   // calculate specRes, number of samples per time block, step time
   if(getSpecRes(config, configindex, specRes, setupinfo.verbose) != EXIT_SUCCESS)
   {
-    cout << "Failed to calculate spectral resolution ..." << endl;
+    cout << "Process " << myid << ": Failed to calculate spectral resolution ..." << endl;
     return EXIT_FAILURE;
   };
   numSamps = getNumSamps(config, configindex, specRes, setupinfo.verbose);
   stime = static_cast<int>(1 / specRes); // step time in microsecond
-  if(setupinfo.verbose >= 1)
+  if(setupinfo.verbose >= 1 && myid == MASTER)
   {
     cout << "SpecRes is " << specRes << " MHz" << endl;
     cout << "number of samples per time block is " << numSamps << "\n"
@@ -347,9 +348,18 @@ int main(int argc, char* argv[])
   // and copy them to the right subband of each antenna
   genSignal(tdur/stime, commFreqSig, subbands, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
 
+//----------------------
+  // Master generates common signal
+  // each antenna/subband copy fabricates its own data
+
   // loop though the simulation time dur
   do
   {
+//------------------------
+    // every antenna/subband does its own part
+    // i.e. move data, fabricate subband data etc.
+
+
     // move data in each array from the second half to the first half
     // and set the process pointer to the proper location
     // i.e. data is moved half array ahead, therefore process pointer 
@@ -359,6 +369,12 @@ int main(int argc, char* argv[])
     // reset the current pointer of each array after data is generated
     genSignal(tdur/stime, commFreqSig, subbands, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
 
+//--------------------------------
+    // Master collects process pointer from each worker node and calculates tt
+
+
+if(myid == MASTER)
+{
     // set tt to the lowest process pointer time among all subbands
     tt = getMinProcPtrTime(subbands, setupinfo.verbose);
     if(setupinfo.verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
@@ -369,12 +385,23 @@ int main(int argc, char* argv[])
               "**Something is wrong here!!!" << endl;
       return (EXIT_FAILURE);
     }
+}
+
+// broadcast tt (maybe also others)
+MPI_Barrier(MPI_COMM_WORLD);
+MPI_Bcast(...);
+MPI_Barrier(MPI_COMM_WORLD);
 
     // dur is in second
     // durus is in microsecond
     durus = dur * 1e6;
     while((tt < tdur) && (timer < durus))
     {
+
+//--------------------
+      // each antenna/subband process and packetize its own subband array
+
+
       // process and packetize one vdif packet for each subband array
       if(processAndPacketize(framespersec, subbands, model, setupinfo.verbose))
         return(EXIT_FAILURE);

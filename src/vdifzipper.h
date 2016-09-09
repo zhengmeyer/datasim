@@ -27,7 +27,7 @@
 #define ISCOMPLEX 0
 #define BITSPERBYTE 8
 
-void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose);
+void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid);
 
 #endif /* __VDIFZIPPER_H__ */
 
