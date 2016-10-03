@@ -20,4 +20,4 @@ config.sub
 libtool
 ltmain.sh
 m4/
-Makefile.backup
+*.backup
