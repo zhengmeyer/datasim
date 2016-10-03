@@ -338,6 +338,8 @@ int main(int argc, char* argv[])
   minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
 
   // create and initialize subband of each antenna
+//----------------
+  // every antenna initialize its own subbands
   if(initSubbands(config, configindex, specRes, minStartFreq, subbands, model, tdur, setupinfo)
       != EXIT_SUCCESS)
   {
@@ -353,6 +355,12 @@ int main(int argc, char* argv[])
   // generate tdur time (e.g. 500000 microseconds) common frequency domain signal
   // and copy them to the right subband of each antenna
   genSignal(tdur/stime, commFreqSig, subbands, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
+  // if(myid == MASTER)
+  //   gencplx(...)
+  //  MPI_Barrier(MPI_COMM_WORLD);
+  //  MPI_Bcast(...cplx);
+  //  MPI_Barrier(MPI_COMM_WORLD);
+  //  every antenna copies its subbands data
 
 //----------------------
   // Master generates common signal
@@ -362,18 +370,25 @@ int main(int argc, char* argv[])
   do
   {
 //------------------------
-    // every antenna/subband does its own part
-    // i.e. move data, fabricate subband data etc.
+    // every antenna does its own part
+    // i.e. move data, fabricate subbands data etc.
 
 
     // move data in each array from the second half to the first half
     // and set the process pointer to the proper location
     // i.e. data is moved half array ahead, therefore process pointer 
     // is moved half array ahead
+
     movedata(subbands, setupinfo.verbose);
     // fill in the second half of each array, and
     // reset the current pointer of each array after data is generated
     genSignal(tdur/stime, commFreqSig, subbands, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
+    // if(myid == MASTER)
+    //   gencplx(...)
+    //  MPI_Barrier(MPI_COMM_WORLD);
+    //  MPI_Bcast(...cplx);
+    //  MPI_Barrier(MPI_COMM_WORLD);
+    //  every antenna copies its subbands data
 
 //--------------------------------
     // Master collects process pointer from each worker node and calculates tt
