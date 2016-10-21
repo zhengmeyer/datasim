@@ -31,8 +31,7 @@
   #define CORR 0.05               // amplitude of common signal relative to the station receiver noise
   #define BSMX 1024 * 1024
 
-  #define SEFD 1000
-  #endif /* __DATASIM_H__ */
+#endif /* __DATASIM_H__ */
 
 /*
  * eof

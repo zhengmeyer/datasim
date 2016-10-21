@@ -118,8 +118,12 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
         {
           istringstream ss(optarg);
           string token;
+          int cnt = 0;
           while(getline(ss, token, ','))
-            setupinfo.antSEFDs.push_back(atoi(token.c_str()));
+          {
+            setupinfo.antSEFDs[cnt] = atoi(token.c_str());
+            cnt++;
+          }
         }
         break;
       case 'd':
@@ -196,7 +200,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
   }
   else
   {
-    setupinfo.inputfilename = argv[optind];
+    strcpy(setupinfo.inputfilename, argv[optind]);
   }
 }
 
@@ -219,7 +223,6 @@ int main(int argc, char* argv[])
     setupinfo.test = 0;
     setupinfo.seed = SEED;
     setupinfo.sfluxdensity = 1;     // source flux density in Jansky
-    setupinfo.inputfilename = "";   // .input file name
     /*
     for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
       setupinfo.linesignal[i] = 0;
@@ -232,8 +235,29 @@ int main(int argc, char* argv[])
   }
 
   // MPI_Type_create_struct
+  // Create struct for setupinfo
+  const int nitems = 6;
+  int block[6] = {1, 1, 1, 1, MAXANT, MAXLEN};
+  MPI_Datatype type[6] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR};
+  MPI_Aint disp[6];
+  MPI_Datatype structtype;
+
+  disp[0] = offsetof(setup, verbose);
+  disp[1] = offsetof(setup, test);
+  disp[2] = offsetof(setup, seed);
+  disp[3] = offsetof(setup, sfluxdensity);
+  disp[4] = offsetof(setup, antSEFDs);
+  disp[5] = offsetof(setup, inputfilename);
+
+  MPI_Type_create_struct(nitems, block, disp, type, &structtype);
+  MPI_Type_commit(&structtype);
+
   // broadcast setupinfo
-  // MPI_Bcast
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Bcast(&setupinfo, 1, structtype, MASTER, MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  //cout << "Process " << myid << ": " << setupinfo.seed << " " << setupinfo.inputfilename << endl;
 
   float tdur = 0.5 * 1e6;
   float testdur = 1; // time duration of test mode
@@ -247,7 +271,6 @@ int main(int argc, char* argv[])
   int stime;                            // step time in microsecond == time block
   int configindex = 0;
   cf32* commFreqSig;                    // 0.5 seconds common frequency domain signal
-  vector<Subband*> subbands;            // vector of subband arrays
 
   double timer = 0.0, tt;               
   double vptime;                        // vptime is the time duration of the samples within the packet
@@ -259,7 +282,7 @@ int main(int argc, char* argv[])
   rng_inst = gsl_rng_alloc(gsl_rng_ranlux389);
   gsl_rng_set(rng_inst, setupinfo.seed+myid);
 
-  config = new Configuration(setupinfo.inputfilename.c_str(), 0);
+  config = new Configuration(setupinfo.inputfilename, 0);
   model = config->getModel();
 
   // retrieve general information from config
@@ -267,10 +290,6 @@ int main(int argc, char* argv[])
   dur = setupinfo.test ? testdur : config->getExecuteSeconds();
 
   numdatastreams = config->getNumDataStreams();
-
-  size_t len = setupinfo.antSEFDs.size();
-  for(int i = len; i < numdatastreams; i++)
-    setupinfo.antSEFDs.push_back(SEFD);
 
   // use framespersec of the first antenna to calculate vptime
   // use this vptime as time reference
@@ -298,7 +317,7 @@ int main(int argc, char* argv[])
 
       cout << "Telescope " << config->getTelescopeName(i) << "\n"
            << " Number of recorded band(s) is " << numrecordedbands << "\n"
-           << " Antenna SEFD is " << setupinfo.antSEFDs.at(i) << "\n"
+           << " Antenna SEFD is " << setupinfo.antSEFDs[i] << "\n"
            << " Number of frames per second is " << framespersec << endl;
 
       for(int j = 0; j < numrecordedbands; j++)
@@ -336,11 +355,17 @@ int main(int argc, char* argv[])
     cout << "tdur is " << tdur << endl;
   }
   minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
+  cout << "Process " << myid << ": Min. start frequency is " << minStartFreq << endl; 
 
+/*
   // create and initialize subband of each antenna
 //----------------
   // every antenna initialize its own subbands
-  if(initSubbands(config, configindex, specRes, minStartFreq, subbands, model, tdur, setupinfo)
+  Subband *subband;
+  // --------------------------
+  // Working on modifying initSubband
+
+  if(initSubbands(config, configindex, specRes, minStartFreq, subband, model, tdur, setupinfo)
       != EXIT_SUCCESS)
   {
     cout << "Failed to create and initialize Subband ..." << endl;
@@ -408,7 +433,9 @@ if(myid == MASTER)
     }
 }
 
-// broadcast tt (maybe also others)
+// broadcast tt and vptime(maybe also others)
+// vptime is used here as time reference, it should be calculated based on tt?
+// ----still need to think about it, not related to parallelisation
 //MPI_Barrier(MPI_COMM_WORLD);
 //MPI_Bcast(...);
 //MPI_Barrier(MPI_COMM_WORLD);
@@ -437,7 +464,8 @@ if(myid == MASTER)
   if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
   vectorFree(commFreqSig); 
 
-
+//------------
+  // master combine all vdif files into one final vdif
   // each datastream calls vdifzipper to combine multiple vdif files into one final vdif
   if(myid < numdatastreams)
   {
@@ -449,7 +477,8 @@ if(myid == MASTER)
 
   // free random number generator
   gsl_rng_free(rng_inst);
-
+*/
+  MPI_Type_free(&structtype);
   MPI_Finalize();
 
   return(EXIT_SUCCESS);

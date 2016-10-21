@@ -31,8 +31,8 @@
 using namespace std;
 
      
-int initSubbands(Configuration* config, int configindex, float specRes, 
-                  float minStartFreq, vector<Subband*> &subbands, Model* model,
+int initSubband(Configuration* config, int configindex, float specRes, 
+                  float minStartFreq, Subband &subband, Model* model,
                   float tdur, setup setupinfo)
 {
   size_t length, startIdx, blksize;

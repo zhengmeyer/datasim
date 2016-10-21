@@ -30,6 +30,8 @@
 #define MEAN 1.0
 #define STDEV 1.0
 #define SEED 48573
+#define MAXANT 5
+#define MAXLEN 50
 
 
 typedef struct setup {
@@ -37,8 +39,8 @@ typedef struct setup {
   int test;                                 // test mode
   unsigned int seed;                        // random number generator seed
   float sfluxdensity;                       // source flux density in Jansky
-  vector<unsigned int> antSEFDs;            // antenna SEFD
-  std::string inputfilename;                // .input file name
+  int antSEFDs[MAXANT] ;                    // antenna SEFD
+  char inputfilename[MAXLEN];               // .input file name
   //vector<float> linesignal[2];              // line signal (sky)
   //vector<vector<float>> injectionsignal;    // injection signal (station)
 } setup;
@@ -46,8 +48,8 @@ typedef struct setup {
 /*
  * Initialize subbands of all antennas
  */
-int initSubbands(Configuration* config, int configindex, float specRes, 
-                  float minStartFreq, vector<Subband*> &subbands, Model* model,
+int initSubband(Configuration* config, int configindex, float specRes, 
+                  float minStartFreq, Subband &subband, Model* model,
                   float tdur, setup setupinfo);
 
 /*
