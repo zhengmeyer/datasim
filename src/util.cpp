@@ -33,7 +33,7 @@ using namespace std;
      
 int initSubband(Configuration* config, int configindex, float specRes, 
                   float minStartFreq, Subband &subband, Model* model,
-                  float tdur, setup setupinfo)
+                  float tdur, setup setupinfo, int antidx, int sbidx)
 {
   size_t length, startIdx, blksize;
   size_t vpsamps;   // number of samples in a vdif packet
@@ -59,70 +59,65 @@ int initSubband(Configuration* config, int configindex, float specRes,
   tempcoeffs = vectorAlloc_f64(2);
   delaycoeffs = vectorAlloc_f64(2);
 
-  for(size_t i = 0; i < numdatastreams; i++)
+
+  framebytes = (size_t)config->getFrameBytes(configindex, antidx);
+  numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, antidx);
+  framespersec = config->getFramesPerSecond(configindex, antidx);
+  vptime = 1.0 * 1e6 / framespersec;
+  antname = config->getTelescopeName(antidx);
+  // change the last character of the output vdif name to lower case for fourfit postprocessing
+  //antname.back() = tolower(antname.back());
+  antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
+  if(setupinfo.verbose >= 1)
+  { 
+    cout << "Antenna " << antidx << endl;
+    cout << " framebytes is " << framebytes << endl;
+    cout << " numrecordedbands is " << numrecordedbands << endl;
+    cout << " antenna name is " << antname << endl;
+  }
+
+  // only consider scan 0 source 0
+  // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
+  model->calculateDelayInterpolator(0, 0, vptime*1e-6, 1, antidx, 0, 1, tempcoeffs);
+  model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, vptime*1e-6, 1, antidx, 0, 1, delaycoeffs);
+  if(setupinfo.verbose >= 2)
   {
-    framebytes = (size_t)config->getFrameBytes(configindex, i);
-    numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, i);
-    framespersec = config->getFramesPerSecond(configindex, i);
-    vptime = 1.0 * 1e6 / framespersec;
-    antname = config->getTelescopeName(i);
-    // change the last character of the output vdif name to lower case for fourfit postprocessing
-    //antname.back() = tolower(antname.back());
-    antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
-    if(setupinfo.verbose >= 1)
-    { 
-      cout << "Antenna " << i << endl;
-      cout << " framebytes is " << framebytes << endl;
-      cout << " numrecordedbands is " << numrecordedbands << endl;
-      cout << " antenna name is " << antname << endl;
-    }
+    cout << "delay in us for datastream " << antidx << " at offsettime 0s is " << tempcoeffs[1] << endl;
+    cout << "delay in us for datastream " << antidx << " at offsettime " << tempcoeffs[1]*1e-6 << "s " << " is " << delaycoeffs[1] << endl;
+  }
 
-    // only consider scan 0 source 0
-    // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
-    model->calculateDelayInterpolator(0, 0, vptime*1e-6, 1, i, 0, 1, tempcoeffs);
-    model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, vptime*1e-6, 1, i, 0, 1, delaycoeffs);
-    if(setupinfo.verbose >= 2)
-    {
-      cout << "delay in us for datastream " << i << " at offsettime 0s is " << tempcoeffs[1] << endl;
-      cout << "delay in us for datastream " << i << " at offsettime " << tempcoeffs[1]*1e-6 << "s " << " is " << delaycoeffs[1] << endl;
-    }
+  // calculate vdif packet size in terms of bytes and number of samples
+  // each sample uses 4 bits, as the sample is complex and we use 2 bits sampling
+  // therefore 2 samples per byte
+  vpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
+  vpsamps = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands * 2;
 
-    // calculate vdif packet size in terms of bytes and number of samples
-    // each sample uses 4 bits, as the sample is complex and we use 2 bits sampling
-    // therefore 2 samples per byte
-    vpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
-    vpsamps = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands * 2;
+  freq = config->getDRecordedFreq(configindex, antidx, sbidx);
+  bw = config->getDRecordedBandwidth(configindex, antidx, sbidx);
+  if(!is_integer((freq - minStartFreq) / specRes))
+  {
+    cout << "StartIndex position is not an integer ... " << endl
+         << "Something is wrong here ... " << endl;
+    return EXIT_FAILURE;
+  }
+  else
+    startIdx = (freq - minStartFreq) / specRes;
   
-    for(size_t j = 0; j < numrecordedbands; j++)
-    {
-      freq = config->getDRecordedFreq(configindex, i, j);
-      bw = config->getDRecordedBandwidth(configindex, i, j);
-      if(!is_integer((freq - minStartFreq) / specRes))
-      {
-        cout << "StartIndex position is not an integer ... " << endl
-             << "Something is wrong here ... " << endl;
-        return EXIT_FAILURE;
-      }
-      else
-        startIdx = (freq - minStartFreq) / specRes;
-      
-      blksize = bw / specRes; // number of samples to copy from startIdx
-      length = bw * tdur * 2; // size of the array twice of tdur
+  blksize = bw / specRes; // number of samples to copy from startIdx
+  length = bw * tdur * 2; // size of the array twice of tdur
 
-      if(setupinfo.verbose >= 1)
-      {
-        cout << "Ant " << i << " subband " << j << ":" << endl
-             << "  start index is " << startIdx << endl 
-             << "  block size is " << blksize << " length is " << length << endl
-             << "  each vdif packet has " << vpsamps << " samples" << endl
-             << "  VDIF_HEADER_BYTES is " << VDIF_HEADER_BYTES << " vpbytes is " << vpbytes << endl
-             << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
-             << "  recorded freq is " << freq << endl;
-      }
-      subbands.push_back(new Subband(startIdx, blksize, length, i, setupinfo.antSEFDs[i], j, 
-                         vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose));
-    }
-  } 
+  if(setupinfo.verbose >= 1)
+  {
+    cout << "Ant " << antidx << " subband " << sbidx << ":" << endl
+         << "  start index is " << startIdx << endl 
+         << "  block size is " << blksize << " length is " << length << endl
+         << "  each vdif packet has " << vpsamps << " samples" << endl
+         << "  VDIF_HEADER_BYTES is " << VDIF_HEADER_BYTES << " vpbytes is " << vpbytes << endl
+         << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
+         << "  recorded freq is " << freq << endl;
+  }
+  subband = new Subband(startIdx, blksize, length, antidx, setupinfo.antSEFDs[antidx], sbidx, 
+                     vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose);
 
   vectorFree(tempcoeffs);
   vectorFree(delaycoeffs);

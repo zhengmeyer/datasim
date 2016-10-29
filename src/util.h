@@ -50,7 +50,7 @@ typedef struct setup {
  */
 int initSubband(Configuration* config, int configindex, float specRes, 
                   float minStartFreq, Subband &subband, Model* model,
-                  float tdur, setup setupinfo);
+                  float tdur, setup setupinfo, int antidx, int sbidx);
 
 /*
  * free subbands of all antennas
