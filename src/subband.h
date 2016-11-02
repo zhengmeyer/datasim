@@ -68,7 +68,7 @@ class Subband{
      * inverse DFT/FFT
      * copy time domain data to arr 
      */
-    void fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxdensity);
+    void fabricatedata(float* commFreqSig, gsl_rng *rng_inst, float sfluxdensity);
     /*
      * move data from the second half of the array to the first half
      */
@@ -170,7 +170,7 @@ class Subband{
     float d_square;           // accumulated value of sample*sample
 
     // support functions for fabricatedata()
-    void copyToTemp(Ipp32fc* commFreqSig);
+    void copyToTemp(float* commFreqSig);
     void mulsfluxdensity(float sfluxdensity);
     void addstationnoise(gsl_rng *rng_inst);
     void normalizesignal(float sfluxdensity);

@@ -303,8 +303,14 @@ Subband const &Subband::operator=(Subband const &other)
 /*
  * Public functions
  */
-void Subband::fabricatedata(Ipp32fc* commFreqSig, gsl_rng *rng_inst, float sfluxdensity)
+void Subband::fabricatedata(float* commFreqSig, gsl_rng *rng_inst, float sfluxdensity)
 {
+  // select data from commFreqSig 
+  // add station noise
+  // apply Ormsby filter
+  // inverse DFT/FFT
+  // copy data to the subband array
+
   copyToTemp(commFreqSig);
   mulsfluxdensity(sfluxdensity);
   addstationnoise(rng_inst);
@@ -541,13 +547,17 @@ void Subband::closevdif()
 /*
  * Copy data from common signal to temporary signal array
  */
-void Subband::copyToTemp(Ipp32fc* commFreqSig)
+void Subband::copyToTemp(float* commFreqSig)
 {
   if(d_verbose >= 2)
     cout << "copy data to temp for ant " << d_antIdx << " subband " << d_sbIdx << endl;
-  for(size_t i = 0; i < d_blksize; i++)
+
+  size_t index;
+  for(size_t idx = 0; idx < d_blksize; idx++)
   {
-    d_temp[i] = commFreqSig[d_startIdx+i];
+    index = 2 * (d_startIdx+idx);
+    d_temp[idx].re = commFreqSig[index];
+    d_temp[idx].im = commFreqSig[index + 1];
   }
 }
 
@@ -571,18 +581,18 @@ void Subband::addstationnoise(gsl_rng *rng_inst)
   if(d_verbose >= 2)
     cout << "Adding station noise for ant " << d_antIdx << " subband " << d_sbIdx << endl;
 
-  cf32* noise = vectorAlloc_cf32(d_blksize);
+  float* noise = new float [d_blksize*2];
   // generate station noise with the same variance as the common signal
   gencplx(noise, d_blksize, STDEV, rng_inst, d_verbose);
 
   // add station noise to d_temp
   for(size_t idx = 0; idx < d_blksize; idx++)
   {
-    d_temp[idx].re += sqrt(d_antSEFD) * noise[idx].re;
-    d_temp[idx].im += sqrt(d_antSEFD) * noise[idx].im;
+    d_temp[idx].re += sqrt(d_antSEFD) * noise[2*idx];
+    d_temp[idx].im += sqrt(d_antSEFD) * noise[2*idx+1];
   }
 
-  vectorFree(noise);
+  delete noise;
 }
 
 /*

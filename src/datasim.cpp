@@ -273,17 +273,21 @@ int main(int argc, char* argv[])
   int numSamps;                         // number of samples to be generated per time block for the common signal
   int stime;                            // step time in microsecond == time block
   int configindex = 0;
-  cf32* commFreqSig;                    // 0.5 seconds common frequency domain signal
+  float* commFreqSig;                   // 0.5 seconds common frequency domain signal
 
-  double timer = 0.0, tt;               
-  double vptime;                        // vptime is the time duration of the samples within the packet
+  double timer = 0.0;
+  double tt;
+  double procptrtime;               
+  double refvptime;                     // vptime is the time duration of the samples within the packet
   size_t framespersec;
 
   // initialize random number generator
-  gsl_rng *rng_inst;
+  gsl_rng **rng_inst;
   gsl_rng_env_setup();
-  rng_inst = gsl_rng_alloc(gsl_rng_ranlux389);
-  gsl_rng_set(rng_inst, setupinfo.seed+myid);
+
+  rng_inst = (gsl_rng **) malloc(numprocs * sizeof(gsl_rng *));
+  rng_inst[myid] = gsl_rng_alloc (gsl_rng_ranlux389);
+  gsl_rng_set(rng_inst[myid],setupinfo.seed+myid);
 
   config = new Configuration(setupinfo.inputfilename, 0);
   model = config->getModel();
@@ -291,18 +295,17 @@ int main(int argc, char* argv[])
   // retrieve general information from config
   // if in test mode, only generate data for 1 second
   dur = setupinfo.test ? testdur : config->getExecuteSeconds();
+  // dur is in second
+  // durus is in microsecond
+  durus = dur * 1e6;
 
   numdatastreams = config->getNumDataStreams();
 
   // use framespersec of the first antenna to calculate vptime
   // use this vptime as time reference
   framespersec = config->getFramesPerSecond(configindex, 0);
-  vptime = 1.0 * 1e6 / framespersec;
+  refvptime = 1.0 * 1e6 / framespersec;
  
-
-//-----------------
-// the code below has not been tested yet
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   // print out information of the simulation
   // and retrieve information of the number of antenna and subbands
@@ -322,7 +325,7 @@ int main(int argc, char* argv[])
     // array with num-antenna number of elements
     // the value of which is the number of subbands the corresponding antenna has
     vector<int> antsb;
-    if(!is_integer(vptime))
+    if(!is_integer(refvptime))
     {
       cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
       return EXIT_FAILURE;
@@ -334,7 +337,7 @@ int main(int argc, char* argv[])
 
     for(int i = 0; i < numdatastreams; i++)
     {
-      framespersec = config->getFramesPerSecond(configindex, i);
+      framespersec = (size_t)config->getFramesPerSecond(configindex, i);
         
       numrecordedbands = config->getDNumRecordedBands(configindex, i);
 
@@ -374,7 +377,6 @@ int main(int argc, char* argv[])
       cout << "Number of scans is " << model->getNumScans() << endl;
       cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
       cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-      //cout << "vptime in seconds is " << vptime/1e6 << endl; // vptime of the reference antenna
     }
 
     subbandsinfo = new int [sbcount * 2];
@@ -405,7 +407,7 @@ int main(int argc, char* argv[])
   };
   numSamps = getNumSamps(config, configindex, specRes, setupinfo.verbose);
   stime = static_cast<int>(1 / specRes); // step time in microsecond
-  if(setupinfo.verbose >= 1 && myid == MASTER)
+  if(setupinfo.verbose >= 0 && myid == MASTER)
   {
     cout << "SpecRes is " << specRes << " MHz" << endl;
     cout << "number of samples per time block is " << numSamps << "\n"
@@ -413,11 +415,6 @@ int main(int argc, char* argv[])
     cout << "tdur is " << tdur << endl;
   }
   minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
-  cout << "Process " << myid << ": Min. start frequency is " << minStartFreq << endl; 
-
-
-  // --------------------------
-  // Working on modifying initSubband
 
   // scatter sbinfo to each process
   // disbribute (antidx, sbidx) information to each process
@@ -431,43 +428,182 @@ int main(int argc, char* argv[])
   int antidx = sbinfo[0];
   int sbidx = sbinfo[1];
 
-  if(setupinfo.verbose == 0)
-    cout << "Process " << myid << ": " << antidx << " " << sbidx << endl;
-
-  Subband *subband;
-  if(initSubband(config, configindex, specRes, minStartFreq, subband, model, tdur, setupinfo, antidx, sbidx)
-      != EXIT_SUCCESS)
+  // each process initializes its corresponding subband
+  size_t length, startIdx, blksize;
+  size_t vpsamps;   // number of samples in a vdif packet
+  size_t vpbytes;   // number of bytes in a single-thread vdif packet
+  size_t framebytes;
+  float freq, bw;
+  string antname;
+  int mjd, seconds;
+  f64* tempcoeffs;
+  f64* delaycoeffs;
+  double antvptime;
+  size_t antframespersec;
+  
+  mjd = config->getStartMJD();
+  seconds = config->getStartSeconds();
+  if(setupinfo.verbose >= 1)
   {
-    cout << "Failed to create and initialize Subband ..." << endl;
-    return EXIT_FAILURE;
-  };
-/*
+    cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
+  }
 
-  //------------------------
-  // master generate common signal
+  // allocate memory for delaycoeffs
+  tempcoeffs = vectorAlloc_f64(2);
+  delaycoeffs = vectorAlloc_f64(2);
+
+
+  framebytes = (size_t)config->getFrameBytes(configindex, antidx);
+  numrecordedbands = config->getDNumRecordedBands(configindex, antidx);
+  antframespersec = (size_t)config->getFramesPerSecond(configindex, antidx);
+  antvptime = 1.0 * 1e6 / antframespersec;
+  antname = config->getTelescopeName(antidx);
+  // change the last character of the output vdif name to lower case for fourfit postprocessing
+  //antname.back() = tolower(antname.back());
+  antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
+  if(setupinfo.verbose >= 1)
+  { 
+    cout << "Antenna " << antidx << endl;
+    cout << " framebytes is " << framebytes << endl;
+    cout << " numrecordedbands is " << numrecordedbands << endl;
+    cout << " antenna name is " << antname << endl;
+  }
+
+  // only consider scan 0 source 0
+  // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
+  model->calculateDelayInterpolator(0, 0, antvptime*1e-6, 1, antidx, 0, 1, tempcoeffs);
+  model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, antvptime*1e-6, 1, antidx, 0, 1, delaycoeffs);
+  if(setupinfo.verbose >= 2)
+  {
+    cout << "delay in us for datastream " << antidx << " at offsettime 0s is " << tempcoeffs[1] << endl;
+    cout << "delay in us for datastream " << antidx << " at offsettime " << tempcoeffs[1]*1e-6 << "s " << " is " << delaycoeffs[1] << endl;
+  }
+
+  // calculate vdif packet size in terms of bytes and number of samples
+  // each sample uses 4 bits, as the sample is complex and we use 2 bits sampling
+  // therefore 2 samples per byte
+  vpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
+  vpsamps = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands * 2;
+
+  freq = config->getDRecordedFreq(configindex, antidx, sbidx);
+  bw = config->getDRecordedBandwidth(configindex, antidx, sbidx);
+  if(!is_integer((freq - minStartFreq) / specRes))
+  {
+    cout << "StartIndex position is not an integer ... " << endl
+         << "Something is wrong here ... " << endl;
+    return EXIT_FAILURE;
+  }
+  else
+    startIdx = (freq - minStartFreq) / specRes;
+  
+  blksize = bw / specRes; // number of samples to copy from startIdx
+  length = bw * tdur * 2; // size of the array twice of tdur
+
+  if(setupinfo.verbose >= 1)
+  {
+    cout << "Process: " << myid << ": Ant " << antidx << " subband " << sbidx << ":" << endl
+         << "  start index is " << startIdx << endl 
+         << "  block size is " << blksize << " length is " << length << endl
+         << "  each vdif packet has " << vpsamps << " samples" << endl
+         << "  VDIF_HEADER_BYTES is " << VDIF_HEADER_BYTES << " vpbytes is " << vpbytes << endl
+         << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
+         << "  recorded freq is " << freq << endl;
+  }
+
+  Subband* subband = new Subband(startIdx, blksize, length, antidx, setupinfo.antSEFDs[antidx], sbidx, 
+                     vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose);
+
+  // finish initializing subband
+  // free memories for temporary allacated arrays
+  vectorFree(tempcoeffs);
+  vectorFree(delaycoeffs);
+
+  if(setupinfo.verbose == 0)
+    cout << "Process " << myid << ": " << subband->getantIdx() << " " << subband->getsbIdx() << endl;
+
+  // master generates common signal
   // each subband copies its data to the right place
-  // divide genSignal function into two parts
   
   // allocate memory for the common frequency domain signal
-  commFreqSig = vectorAlloc_cf32(numSamps);
-
-  cout << "Start generating data ...\n"
-          "The process may take a while, please be patient!" << endl;
+  commFreqSig = new float [numSamps*2];
 
   // generate tdur time (e.g. 500000 microseconds) common frequency domain signal
   // and copy them to the right subband of each antenna
-  genSignal(tdur/stime, commFreqSig, subbands, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
-  // if(myid == MASTER)
-  //   gencplx(...)
-  //  MPI_Barrier(MPI_COMM_WORLD);
-  //  MPI_Bcast(...cplx);
-  //  MPI_Barrier(MPI_COMM_WORLD);
-  //  every antenna copies its subbands data
+  if(myid == MASTER)
+  {
+    cout << "Start generating data ...\n"
+      "The process may take a while, please be patient!" << endl;
+    if(setupinfo.verbose >= 1)
+      cout << "Generate " << tdur << " us signal" << endl;
+  }
 
-//----------------------
-  // Master generates common signal
-  // each antenna/subband copy fabricates its own data
+  size_t stdur = tdur/stime;
+  for(size_t t = 0; t < stdur; t++)
+  {
+    if(myid == MASTER)
+      gencplx(commFreqSig, numSamps, STDEV, rng_inst[myid], setupinfo.verbose);
 
+    // Master broadcast common signal to each antenna/subband
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if(setupinfo.verbose >= 2)
+    {
+      cout << "At time " << t << "us:" << endl;
+      cout << " Fabricate data for Antenna " << subband->getantIdx() << "subband " << subband->getsbIdx() << endl;
+    }
+
+    // each antenna/subband fabricate its own part of the data
+    subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
+
+    // after TDUR time signal is generated for each subband array
+    // set the current pointer of each array back to the beginning of the second half
+
+    subband->setcptr(subband->getlength() / 2);
+    if(setupinfo.verbose >= 2) 
+      cout << "Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx()
+                         << " set current pointer back to " << subband->getlength() / 2 << endl;
+  }
+
+//-----------------
+// the code below has not been tested yet
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/*
+  MPI_Barrier(MPI_COMM_WORLD);
+  // Master collects process pointer from each worker node and calculates tt
+  // each subband calculates its own process pointer time
+  //procptrtime = subband->getprocptr() * (1.0 / subband->getbandwidth());
+  // Master collects process pointer from each worker node and calculates tt
+  // tt is the minimum of all process pointer time
+  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Reduce(&procptrtime, &tt, 1, MPI_DOUBLE, MPI_MIN, MASTER, MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if(myid == MASTER)
+  {
+      if(setupinfo.verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
+
+      if(tt >= tdur)
+      {
+        cout << "**the lowest process pointer time is larger than tdur!!!\n"
+                "**Something is wrong here!!!" << endl;
+        MPI_Abort(MPI_COMM_WORLD, ERROR);
+        return (EXIT_FAILURE);
+      }
+  }
+
+  // broadcast tt
+  //-------------------------------
+  // refvptime is used here as time reference, it should be calculated based on tt?
+  // ----still need to think about it, not related to parallelisation
+  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Bcast(&tt, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  cout << "Process myid: " << myid << ", tt is " << tt << endl;
+*/
+/*
   // loop though the simulation time dur
   do
   {
@@ -481,83 +617,92 @@ int main(int argc, char* argv[])
     // i.e. data is moved half array ahead, therefore process pointer 
     // is moved half array ahead
 
-    movedata(subbands, setupinfo.verbose);
+    movedata(subband, setupinfo.verbose);
     // fill in the second half of each array, and
     // reset the current pointer of each array after data is generated
-    genSignal(tdur/stime, commFreqSig, subbands, numSamps, rng_inst, tdur, setupinfo.sfluxdensity, setupinfo.verbose);
-    // if(myid == MASTER)
-    //   gencplx(...)
-    //  MPI_Barrier(MPI_COMM_WORLD);
-    //  MPI_Bcast(...cplx);
-    //  MPI_Barrier(MPI_COMM_WORLD);
-    //  every antenna copies its subbands data
-
-//--------------------------------
-    // Master collects process pointer from each worker node and calculates tt
-
-
-if(myid == MASTER)
-{
-    // set tt to the lowest process pointer time among all subbands
-    tt = getMinProcPtrTime(subbands, setupinfo.verbose);
-    if(setupinfo.verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
-
-    if(tt >= tdur)
+    for(size_t t = 0; t < stdur; t++)
     {
-      cout << "**the lowest process pointer time is larger than tdur!!!\n"
-              "**Something is wrong here!!!" << endl;
-      return (EXIT_FAILURE);
+      if(myid == MASTER)
+        gencplx(commFreqSig, numSamps, STDEV, rng_inst[myid], setupinfo.verbose);
+
+      // Master broadcast common signal to each antenna/subband
+      MPI_Barrier(MPI_COMM_WORLD);
+      //MPI_Bcast(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      if(setupinfo.verbose >= 2)
+      {
+        cout << "At time " << t << "us:" << endl;
+        cout << " Fabricate data for Antenna " << subband->getantIdx() << "subband " << subband->getsbIdx() << endl;
+      }
+
+      // each antenna/subband fabricate its own part of the data
+      //subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
+
+      // after TDUR time signal is generated for each subband array
+      // set the current pointer of each array back to the beginning of the second half
+
+      //subband->setcptr(subband->getlength() / 2);
+      if(setupinfo.verbose >= 2) 
+        cout << "Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx()
+                           << " set current pointer back to " << subband->getlength() / 2 << endl;
     }
-}
 
-// broadcast tt and vptime(maybe also others)
-// vptime is used here as time reference, it should be calculated based on tt?
-// ----still need to think about it, not related to parallelisation
-//MPI_Barrier(MPI_COMM_WORLD);
-//MPI_Bcast(...);
-//MPI_Barrier(MPI_COMM_WORLD);
-
-    // dur is in second
-    // durus is in microsecond
-    durus = dur * 1e6;
     while((tt < tdur) && (timer < durus))
     {
-
-//--------------------
-      // each antenna/subband process and packetize its own subband array
-
-
       // process and packetize one vdif packet for each subband array
-      if(processAndPacketize(framespersec, subbands, model, setupinfo.verbose))
+      if(processAndPacketize(antframespersec, subband, model, setupinfo.verbose))
         return(EXIT_FAILURE);
-      tt += vptime;
-      timer += vptime; 
+      tt += refvptime;
+      timer += refvptime; 
       if(setupinfo.verbose >= 2) cout << "tt is " << tt << ", timer is " << timer << endl;
     }
 
+    if(myid == MASTER)
+    {
+      tt += refvptime;
+      timer += refvptime;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(&tt, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
+    MPI_Bcast(&timer, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
   }while(timer < durus);
 */
-//  freeSubband(subband);
-/*
-  if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
-  vectorFree(commFreqSig); 
+  MPI_Barrier(MPI_COMM_WORLD);
 
-//------------
   // master combine all vdif files into one final vdif
   // each datastream calls vdifzipper to combine multiple vdif files into one final vdif
-  if(myid < numdatastreams)
+/*
+  if(myid== MASTER)
   {
-    // combine VDIF files
-    vdifzipper(config, configindex, durus, setupinfo.verbose, myid);
+    if(myid < numdatastreams)
+    {
+      // combine VDIF files
+      vdifzipper(config, configindex, durus, setupinfo.verbose, myid);
+    }
+
+    cout << "All data has been generated successfully, bye!" << endl;
   }
 
-  cout << "All data has been generated successfully, bye!" << endl;
-
-  // free random number generator
-  gsl_rng_free(rng_inst);
 */
+  //subband->closevdif();
+  // free subband memory
+  MPI_Barrier(MPI_COMM_WORLD);
+ 
+  // free the memory allocated
+  //delete subband;
+
+  if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
+  // free allocated common signal memory
+  //delete commFreqSig; 
+
   MPI_Type_free(&structtype);
 
+  // free random number generator
+  gsl_rng_free(rng_inst[myid]);
   MPI_Finalize();
 
   return(EXIT_SUCCESS);
