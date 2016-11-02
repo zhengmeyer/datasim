@@ -434,7 +434,6 @@ int main(int argc, char* argv[])
   if(setupinfo.verbose == 0)
     cout << "Process " << myid << ": " << antidx << " " << sbidx << endl;
 
-/*
   Subband *subband;
   if(initSubband(config, configindex, specRes, minStartFreq, subband, model, tdur, setupinfo, antidx, sbidx)
       != EXIT_SUCCESS)
@@ -442,7 +441,7 @@ int main(int argc, char* argv[])
     cout << "Failed to create and initialize Subband ..." << endl;
     return EXIT_FAILURE;
   };
-
+/*
 
   //------------------------
   // master generate common signal
