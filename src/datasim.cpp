@@ -603,7 +603,7 @@ int main(int argc, char* argv[])
 
   cout << "Process myid: " << myid << ", tt is " << tt << endl;
 
-/*
+
   // loop though the simulation time dur
   do
   {
@@ -637,12 +637,12 @@ int main(int argc, char* argv[])
       }
 
       // each antenna/subband fabricate its own part of the data
-      //subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
+      subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
 
       // after TDUR time signal is generated for each subband array
       // set the current pointer of each array back to the beginning of the second half
 
-      //subband->setcptr(subband->getlength() / 2);
+      subband->setcptr(subband->getlength() / 2);
       if(setupinfo.verbose >= 2) 
         cout << "Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx()
                            << " set current pointer back to " << subband->getlength() / 2 << endl;
@@ -651,8 +651,12 @@ int main(int argc, char* argv[])
     while((tt < tdur) && (timer < durus))
     {
       // process and packetize one vdif packet for each subband array
-      if(processAndPacketize(antframespersec, subband, model, setupinfo.verbose))
+      int rc = processAndPacketize(antframespersec, subband, model, setupinfo.verbose);
+      if(rc)
+      {
+        MPI_Abort(MPI_COMM_WORLD, ERROR);
         return(EXIT_FAILURE);
+      }
       tt += refvptime;
       timer += refvptime; 
       if(setupinfo.verbose >= 2) cout << "tt is " << tt << ", timer is " << timer << endl;
@@ -670,12 +674,12 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
 
   }while(timer < durus);
-*/
+
   MPI_Barrier(MPI_COMM_WORLD);
 
   // master combine all vdif files into one final vdif
   // each datastream calls vdifzipper to combine multiple vdif files into one final vdif
-/*
+
   if(myid== MASTER)
   {
     if(myid < numdatastreams)
@@ -687,8 +691,8 @@ int main(int argc, char* argv[])
     cout << "All data has been generated successfully, bye!" << endl;
   }
 
-*/
-  //subband->closevdif();
+  MPI_Barrier(MPI_COMM_WORLD);
+  subband->closevdif();
   // free subband memory
   MPI_Barrier(MPI_COMM_WORLD);
  
