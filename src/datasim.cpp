@@ -3,7 +3,7 @@
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
-                                                                             *
+*                                                                            *
 *    DataSim is free software: you can redistribute it and/or modify         *
 *    it under the terms of the GNU General Public License as published by    *
 *    the Free Software Foundation, either version 3 of the License, or       *
@@ -35,6 +35,9 @@
 #include "vdifzipper.h"
 
 #define MASTER 0
+#define ERROR 100
+#define INFO1 1
+#define INFO2 2
 
 using namespace std;
 
@@ -310,8 +313,8 @@ int main(int argc, char* argv[])
 
   // create a 2D array with the totoal number of subbands
   // containting antenna index and subband index of each subband
-  int** subbandsinfo;
-  int sbinfo[2];
+  int* subbandsinfo;
+  int sbinfo[2] = {0, 0};
   // total subbands counter
   int sbcount = 0;
   if(myid == MASTER)
@@ -359,9 +362,9 @@ int main(int argc, char* argv[])
     {
       cout << "Total number of cores is not the same as total number of subbands\n"
            << "Aborting ..."
-           << "Total number or subbands is " << sbcount << "\n"
+           << "Total number of subbands is " << sbcount << "\n"
            << "Please adjust the number of cores." << endl;
-      MPI_Abort(MPI_COMM_WORLD);
+      MPI_Abort(MPI_COMM_WORLD, ERROR);
     }
 
     // general information from model
@@ -374,22 +377,24 @@ int main(int argc, char* argv[])
       //cout << "vptime in seconds is " << vptime/1e6 << endl; // vptime of the reference antenna
     }
 
-    *subbandsinfo = new int* [sbcount];
-    for(idx = 0; idx < sbcount; idx++)
-      subbandsinfo[idx] = new int [2];
+    subbandsinfo = new int [sbcount * 2];
 
-    int processed = 0;
+    int numprocessed = 0;
     for(int i = 0; i < numdatastreams; i++)
     {
       numrecordedbands = config->getDNumRecordedBands(configindex, i);
       for(int j = 0; j < numrecordedbands; j ++)
       {
-        int idx = numprocessed + j;
-        subbandsinfo[idx] = {i, j};
+        int idx = 2 * (numprocessed + j);
+        subbandsinfo[idx] = i;
+        subbandsinfo[idx+1] = j;
       }
       numprocessed += numrecordedbands;
     }
-
+    for(size_t idx = 0; idx < (size_t) sbcount; idx++)
+    {
+      cout << subbandsinfo[idx*2] << " " << subbandsinfo[idx*2+1] << endl;
+    }
   }
 
   // calculate specRes, number of samples per time block, step time
@@ -411,48 +416,34 @@ int main(int argc, char* argv[])
   cout << "Process " << myid << ": Min. start frequency is " << minStartFreq << endl; 
 
 
-
   // --------------------------
   // Working on modifying initSubband
 
-  // create subarray
-  //int arr[8] = {myid, myid, myid, myid, myid, myid, myid, myid};
-  int arr[2][2] = {{myid, myid}, {myid, myid}};
-
-  MPI_Datatype subarray;
-  // numprocs has the same value as sbcount, i.e. total subband counts
-  const int sizes[2] = {numprocs, 2};
-  const int subsizes[2] = {1, 2};
-  const int starts[2] = {myid, 0};
-
-  MPI_Type_create_subarray(2, sizes, subsizes, starts, MPI_ORDER_FORTRAN, MPI_INT, &subarray);
-
-  MPI_Type_commit(&subarray);
-  MPI_File_set_view(fh, 0, MPI_INT, subarray, "native", MPI_INFO_NULL);
-  MPI_File_write_all(fh, (void*)arr, 4, MPI_INT, &status);
-
-
   // scatter sbinfo to each process
   // disbribute (antidx, sbidx) information to each process
+
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Scatter(subbandsinfo, 1, subarray, sbinfo, 1, subarray, MASTER, MPI_COMM_WORLD);
+  MPI_Scatter(&subbandsinfo[0], 2, MPI_INT, &sbinfo[0], 2, MPI_INT, MASTER, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
 
   // every antenna initialize its own subbands for antenna-based parallelization
-  Subband *subband;
 
   int antidx = sbinfo[0];
   int sbidx = sbinfo[1];
-  if(setupinfo.verbose > 0)
-    cout << "Process " << myid << ": antenna index " << antidx << ", subband index" << sbidx << endl;
-  if(initSubbands(config, configindex, specRes, minStartFreq, subband, model, tdur, setupinfo, antidx, sbidx)
+
+  if(setupinfo.verbose == 0)
+    cout << "Process " << myid << ": " << antidx << " " << sbidx << endl;
+
+/*
+  Subband *subband;
+  if(initSubband(config, configindex, specRes, minStartFreq, subband, model, tdur, setupinfo, antidx, sbidx)
       != EXIT_SUCCESS)
   {
     cout << "Failed to create and initialize Subband ..." << endl;
     return EXIT_FAILURE;
   };
 
-/*
+
   //------------------------
   // master generate common signal
   // each subband copies its data to the right place
@@ -546,8 +537,9 @@ if(myid == MASTER)
     }
 
   }while(timer < durus);
-  
-  freeSubbands(subbands);  
+*/
+//  freeSubband(subband);
+/*
   if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
   vectorFree(commFreqSig); 
 
@@ -566,7 +558,7 @@ if(myid == MASTER)
   gsl_rng_free(rng_inst);
 */
   MPI_Type_free(&structtype);
-  MPI_Type_free(&subarray);
+
   MPI_Finalize();
 
   return(EXIT_SUCCESS);

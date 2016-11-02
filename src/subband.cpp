@@ -175,6 +175,131 @@ Subband::~Subband()
   if(d_verbose >= 1) cout << "Free memory for ant " << d_antIdx << " subband " << d_sbIdx << endl;
 }
 
+// copy constructor
+Subband::Subband(Subband const &other)
+{
+  d_startIdx = other.d_startIdx;
+  d_blksize = other.d_blksize;
+  d_length = other.d_length;
+  d_antIdx = other.d_antIdx;
+  d_antSEFD = other.d_antSEFD;
+  d_sbIdx = other.d_sbIdx;
+  d_vpbytes = other.d_vpbytes;
+  d_vpsamps = other.d_vpsamps;
+  d_starttime = other.d_starttime;
+  d_bandwidth = other.d_bandwidth;
+  d_antname = other.d_antname;
+  d_mjd = other.d_mjd;
+  d_seconds = other.d_seconds;
+  d_freq = other.d_freq;
+  d_verbose = other.d_verbose;
+  d_cptr = other.d_cptr;
+  d_procptr = other.d_procptr;
+  d_filename = other.d_filename;
+
+  d_vdiffile.copyfmt(other.d_vdiffile);      
+  d_vdiffile.clear(other.d_vdiffile.rdstate());                          
+  d_vdiffile.basic_ios<char>::rdbuf(other.d_vdiffile.rdbuf());  
+
+  d_sampletime = other.d_sampletime;
+  d_vptime = other.d_vptime;
+  d_nearestsample = other.d_nearestsample;
+  d_fracsamperror = other.d_fracsamperror;
+  d_pkcounter = other.d_pkcounter;
+  d_shift = other.d_shift;
+  d_vdifbuf = other.d_vdifbuf;
+  d_delaycoeffs = other.d_delaycoeffs;
+  d_fracsamperrbuf = other.d_fracsamperrbuf;
+  d_fringerotbuf = other.d_fringerotbuf;
+  d_arr = other.d_arr;
+  d_temp = other.d_temp;
+  d_tempt = other.d_tempt;
+  d_procbuffer = other.d_procbuffer;
+  d_procbuffreq = other.d_procbuffreq;
+  d_procbufferrot = other.d_procbufferrot;
+  d_procbuffreqcorr = other.d_procbuffreqcorr;
+  d_buffreqtemp = other.d_buffreqtemp;
+  d_realC = other.d_realC;
+  d_real = other.d_real;
+  d_bufsigsize = other.d_bufsigsize;
+  d_bufprocsize = other.d_bufprocsize;
+  d_bufCToRsize = other.d_bufCToRsize;
+  d_bufsig = other.d_bufsig;
+  d_bufproc = other.d_bufproc;
+  d_bufCToR = other.d_bufCToR;
+  d_pDFTSpecCsig = other.d_pDFTSpecCsig;
+  d_pDFTSpecCproc = other.d_pDFTSpecCproc;
+  d_pDFTSpecCCToR = other.d_pDFTSpecCCToR;
+  d_sampcount = other.d_sampcount;
+  d_tmul = other.d_tmul;
+  d_square = other.d_square;
+}
+
+void Subband::swap(Subband& n2)
+{
+  using std::swap;
+  swap(d_startIdx, n2.d_startIdx);
+  swap(d_blksize, n2.d_blksize);
+  swap(d_length, n2.d_length);
+  swap(d_antIdx, n2.d_antIdx);
+  swap(d_antSEFD, n2.d_antSEFD);
+  swap(d_sbIdx, n2.d_sbIdx);
+  swap(d_vpbytes, n2.d_vpbytes);
+  swap(d_vpsamps, n2.d_vpsamps);
+  swap(d_starttime, n2.d_starttime);
+  swap(d_bandwidth, n2.d_bandwidth);
+  swap(d_antname, n2.d_antname);
+  swap(d_mjd, n2.d_mjd);
+  swap(d_seconds, n2.d_seconds);
+  swap(d_freq, n2.d_freq);
+  swap(d_verbose, n2.d_verbose);
+  swap(d_cptr, n2.d_cptr);
+  swap(d_procptr, n2.d_procptr);
+  swap(d_filename, n2.d_filename);
+  d_vdiffile.swap(n2.d_vdiffile);
+  swap(d_sampletime, n2.d_sampletime);
+  swap(d_vptime, n2.d_vptime);
+  swap(d_nearestsample, n2.d_nearestsample);
+  swap(d_fracsamperror, n2.d_fracsamperror);
+  swap(d_pkcounter, n2.d_pkcounter);
+  swap(d_shift, n2.d_shift);
+  swap(d_vdifbuf, n2.d_vdifbuf);
+  swap(d_delaycoeffs, n2.d_delaycoeffs);
+  swap(d_fracsamperrbuf, n2.d_fracsamperrbuf);
+  swap(d_fringerotbuf, n2.d_fringerotbuf);
+  swap(d_arr, n2.d_arr);
+  swap(d_temp, n2.d_temp);
+  swap(d_tempt, n2.d_tempt);
+  swap(d_procbuffer, n2.d_procbuffer);
+  swap(d_procbuffreq, n2.d_procbuffreq);
+  swap(d_procbufferrot, n2.d_procbufferrot);
+  swap(d_procbuffreqcorr, n2.d_procbuffreqcorr);
+  swap(d_buffreqtemp, n2.d_buffreqtemp);
+  swap(d_realC, n2.d_realC);
+  swap(d_real, n2.d_real);
+  swap(d_bufsigsize, n2.d_bufsigsize);
+  swap(d_bufprocsize, n2.d_bufprocsize);
+  swap(d_bufCToRsize, n2.d_bufCToRsize);
+  swap(d_bufsig, n2.d_bufsig);
+  swap(d_bufproc, n2.d_bufproc);
+  swap(d_bufCToR, n2.d_bufCToR);
+  swap(d_pDFTSpecCsig, n2.d_pDFTSpecCsig);
+  swap(d_pDFTSpecCproc, n2.d_pDFTSpecCproc);
+  swap(d_pDFTSpecCCToR, n2.d_pDFTSpecCCToR);
+  swap(d_sampcount, n2.d_sampcount);
+  swap(d_tmul, n2.d_tmul);
+  swap(d_square, n2.d_square);
+}
+
+// assignment operator
+Subband const &Subband::operator=(Subband const &other)
+{
+  Subband tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+
 /*
  * Public functions
  */

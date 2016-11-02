@@ -49,13 +49,13 @@ typedef struct setup {
  * Initialize subbands of all antennas
  */
 int initSubband(Configuration* config, int configindex, float specRes, 
-                  float minStartFreq, Subband &subband, Model* model,
+                  float minStartFreq, Subband* subband, Model* model,
                   float tdur, setup setupinfo, int antidx, int sbidx);
 
 /*
  * free subbands of all antennas
  */
-void freeSubbands(vector<Subband*> &subbands);
+void freeSubband(Subband* subbands);
 
 /*
  * Check whether the fractional part of a floating point number is 0

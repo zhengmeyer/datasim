@@ -35,6 +35,12 @@ class Subband{
           std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose);
     ~Subband();
 
+    // copy constructor
+    Subband(Subband const &other);
+    void swap(Subband& n2);
+    // assignment operator
+    Subband const &operator=(Subband const &other);
+
     // access methods
     inline size_t const getstartIdx() const { return d_startIdx; }
     inline size_t const getblksize() const { return d_blksize; }

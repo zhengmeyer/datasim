@@ -32,7 +32,7 @@ using namespace std;
 
      
 int initSubband(Configuration* config, int configindex, float specRes, 
-                  float minStartFreq, Subband &subband, Model* model,
+                  float minStartFreq, Subband* subband, Model* model,
                   float tdur, setup setupinfo, int antidx, int sbidx)
 {
   size_t length, startIdx, blksize;
@@ -124,19 +124,12 @@ int initSubband(Configuration* config, int configindex, float specRes,
   return EXIT_SUCCESS;
 }
 
-void freeSubbands(vector<Subband*> &subbands)
+void freeSubband(Subband* subband)
 {
-  vector<Subband*>::iterator it;
-  for(it = subbands.begin(); it != subbands.end(); it++)
-  {
-    (*it)->closevdif();
-  }
+  subband->closevdif();
+ 
   // free the memory allocated
-  for(size_t i = 0; i < subbands.size(); i++)
-  {
-    delete subbands[i];
-  }
-  subbands.clear();
+  delete subband;
 }
 
 /*
