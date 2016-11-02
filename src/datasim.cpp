@@ -569,7 +569,7 @@ int main(int argc, char* argv[])
 //-----------------
 // the code below has not been tested yet
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-/*
+
   MPI_Barrier(MPI_COMM_WORLD);
   // Master collects process pointer from each worker node and calculates tt
   // each subband calculates its own process pointer time
@@ -602,7 +602,7 @@ int main(int argc, char* argv[])
   MPI_Barrier(MPI_COMM_WORLD);
 
   cout << "Process myid: " << myid << ", tt is " << tt << endl;
-*/
+
 /*
   // loop though the simulation time dur
   do
