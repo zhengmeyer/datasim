@@ -303,6 +303,12 @@ void genSignal(size_t stdur, cf32* commFreqSig, vector<Subband*>& sbVec, int num
   for(size_t t = 0; t < stdur; t++)
   {
     gencplx(commFreqSig, numSamps, STDEV, rng_inst, verbose);
+    // add mazer signal here (line signal)
+    // default 5 spectral points at the peak
+    // can give the option of having 1 spectral point
+    // use Gaussian shape (around 100KHz wide)
+    // multiply the gaussian shape with the common signal
+
     // loop through each subband array of each antenna
     if(verbose >= 2) cout << "At time " << t << "us:" << endl;
     for(it = sbVec.begin(); it != sbVec.end(); ++it)
