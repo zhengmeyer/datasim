@@ -21,6 +21,7 @@ export ENUM=7000
 target=$SOURCE
 scanStart=$START_TIME
 scanStop=$END_TIME
+fftres=$FFTRES
 #echo $target
 #echo $STATION
 
@@ -133,7 +134,7 @@ echo $mjdStop
 export scanName=''
 export force='--force'
 
-[ -n "$FFTRES"    ] || export FFTRES=0.00390625
+[ -n "$FFTRES"    ] || export FFTRES=$fftres
 [ -n "$SPECRES"   ] || export SPECRES=0.50
 [ -n "$NINT"      ] || export NINT=0.8
 [ -n "$SUBINT"    ] || export SUBINT=32000000
@@ -300,6 +301,7 @@ do
     ref \$FREQ = $fmt-FREQ_$st:$st;
     ref \$BBC = $fmt-BBC:$st;
     ref \$IF = $fmt-IF:$st;
+    ref \$TRACKS = $fmt-TRACKS_$st:$st;
 ....EOF
     shift $st_shift
 done
@@ -450,6 +452,36 @@ do
 done
 cat >> $exper.vex.obs <<EOF
 *-----------------------   end \$IF                 ----------------------*
+*-----------------------   begin \$TRACKS            ----------------------*
+\$TRACKS;
+EOF
+set -- $st_info
+while [ $# -ge $st_shift ]
+do
+    st=$1 name=$2 fmt=$3 bw=$4 das=$5
+    nfmt=`echo $fmt | tr / _`
+    cat >> $exper.vex.obs <<....EOF
+def $nfmt-TRACKS_$st;
+    * station $st
+    track_frame_format = $fmt;
+....EOF
+    for i in $(eval echo {1..$((das))})
+    do
+    [ $i -lt 10 ] && ch=0$i || ch=$i
+    cat >> $exper.vex.obs <<....EOF
+
+    fanout_def =  : &Ch$ch : sign : 1: $i;
+    fanout_def =  : &Ch$ch : mag : 1: $i;
+....EOF
+    done
+    cat >> $exper.vex.obs <<....EOF
+enddef;
+....EOF
+    shift $st_shift
+done
+cat >> $exper.vex.obs <<EOF
+
+*-----------------------   end \$TRACKS              ----------------------*
 *-----------------------   begin \$SCHED            ----------------------*
 \$SCHED;
 * 2010y001d20h58m21.3503s 2010y001d20h58m25.3501s
