@@ -537,7 +537,7 @@ void Subband::writetovdif()
 void Subband::closevdif()
 {
   d_vdiffile.close();
-  if(d_verbose >= 1) cout << "Close output file stream " << d_filename << endl;
+  if(d_verbose >= 3) cout << "Close output file stream " << d_filename << endl;
 }
 
 /*
@@ -558,6 +558,11 @@ void Subband::copyToTemp(float* commFreqSig)
     index = 2 * (d_startIdx+idx);
     d_temp[idx].re = commFreqSig[index];
     d_temp[idx].im = commFreqSig[index + 1];
+    if((idx < 10) && (d_verbose >= 2))
+    {
+      cout << " commFreqSig[" << index << "] is " << commFreqSig[index]
+           << " d_temp[" << idx << "] real is " << d_temp[idx].re<< endl;
+    }
   }
 }
 
@@ -644,11 +649,13 @@ void Subband::copyToArr()
   }
   for(size_t i = 0; i < d_blksize; i++, d_cptr++)
   {
+    d_arr[d_cptr] = d_tempt[i];
+
     if((i < 10) && (d_verbose >= 2))
     {
-      cout << " current pointer index is " << d_cptr << " d_temp[" << i << "] real is " << d_temp[i].re << endl;
+      cout << " current pointer index is " << d_cptr << " d_tempt[" << i << "] real is " 
+           << d_tempt[i].re << " d_arr[" << d_cptr << "] real is " << d_arr[d_cptr].re << endl;
     }
-    d_arr[d_cptr] = d_tempt[i];
   }  
 }
 
@@ -683,7 +690,7 @@ void Subband::complex_to_real()
   for(size_t i = 0; i < 2 * d_vpsamps; i++)
   { 
     // the imaginary part should be around zero
-    if(d_verbose >= 2)
+    if(i < 10 && d_verbose >= 2)
     {
       cout << "Absolute value of real part of d_realC at " << i << " is " << fabs(d_realC[i].re) << endl;
       cout << "Absolute value of imaginary part of d_realC at " << i << " is " << fabs(d_realC[i].im) << endl;
