@@ -21,6 +21,7 @@ export ENUM=7000
 target=$SOURCE
 scanStart=$START_TIME
 scanStop=$END_TIME
+fftres=$FFTRES
 #echo $target
 #echo $STATION
 
@@ -133,7 +134,7 @@ echo $mjdStop
 export scanName=''
 export force='--force'
 
-[ -n "$FFTRES"    ] || export FFTRES=0.00390625
+[ -n "$FFTRES"    ] || export FFTRES=$fftres
 [ -n "$SPECRES"   ] || export SPECRES=0.50
 [ -n "$NINT"      ] || export NINT=0.8
 [ -n "$SUBINT"    ] || export SUBINT=32000000
