@@ -56,7 +56,8 @@ static void usage(int argc, char **argv)
   cout << "     -s" << endl;
   cout << "     --sefd        antenna SEFDs in a comma-seperated list in Jansky.\n"
        << "                   If there are more antennas than provided SEFDs,\n"
-       << "                   SEFD of the remaining antennas is set to 1000 Jansky." << endl;
+       << "                   SEFD of the remaining antennas is set to 1000 Jansky."
+       << "                   Maximum number of antennas supported is 20."<< endl;
   cout << endl;
   cout << "     -d" << endl;
   cout << "     --seed        random number generator seed." << endl;
@@ -226,6 +227,8 @@ int main(int argc, char* argv[])
     setupinfo.test = 0;
     setupinfo.seed = SEED;
     setupinfo.sfluxdensity = 1;     // source flux density in Jansky
+    for(size_t idx = 0; idx < MAXANT; idx++)
+      setupinfo.antSEFDs[idx] = 1000;
     /*
     for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
       setupinfo.linesignal[i] = 0;
@@ -276,8 +279,8 @@ int main(int argc, char* argv[])
   float* commFreqSig;                   // 0.5 seconds common frequency domain signal
 
   double timer = 0.0;
-  double tt;
-  double procptrtime;               
+  double tt = 0.0;
+  double procptrtime = 0.0;               
   double refvptime;                     // vptime is the time duration of the samples within the packet
   size_t framespersec;
 
@@ -541,7 +544,7 @@ int main(int argc, char* argv[])
   for(size_t t = 0; t < stdur; t++)
   {
     if(myid == MASTER)
-      gencplx(commFreqSig, numSamps, STDEV, rng_inst[myid], setupinfo.verbose);
+      gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], setupinfo.verbose);
 
     // Master broadcast common signal to each antenna/subband
     MPI_Barrier(MPI_COMM_WORLD);
@@ -566,52 +569,9 @@ int main(int argc, char* argv[])
                          << " set current pointer back to " << subband->getlength() / 2 << endl;
   }
 
-//-----------------
-// the code below has not been tested yet
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  // Master collects process pointer from each worker node and calculates tt
-  // each subband calculates its own process pointer time
-  //procptrtime = subband->getprocptr() * (1.0 / subband->getbandwidth());
-  // Master collects process pointer from each worker node and calculates tt
-  // tt is the minimum of all process pointer time
-  MPI_Barrier(MPI_COMM_WORLD);
-  //MPI_Reduce(&procptrtime, &tt, 1, MPI_DOUBLE, MPI_MIN, MASTER, MPI_COMM_WORLD);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  if(myid == MASTER)
-  {
-      if(setupinfo.verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
-
-      if(tt >= tdur)
-      {
-        cout << "**the lowest process pointer time is larger than tdur!!!\n"
-                "**Something is wrong here!!!" << endl;
-        MPI_Abort(MPI_COMM_WORLD, ERROR);
-        return (EXIT_FAILURE);
-      }
-  }
-
-  // broadcast tt
-  //-------------------------------
-  // refvptime is used here as time reference, it should be calculated based on tt?
-  // ----still need to think about it, not related to parallelisation
-  MPI_Barrier(MPI_COMM_WORLD);
-  //MPI_Bcast(&tt, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  cout << "Process myid: " << myid << ", tt is " << tt << endl;
-
-
   // loop though the simulation time dur
   do
   {
-//------------------------
-    // every antenna does its own part
-    // i.e. move data, fabricate subbands data etc.
-
-
     // move data in each array from the second half to the first half
     // and set the process pointer to the proper location
     // i.e. data is moved half array ahead, therefore process pointer 
@@ -623,17 +583,17 @@ int main(int argc, char* argv[])
     for(size_t t = 0; t < stdur; t++)
     {
       if(myid == MASTER)
-        gencplx(commFreqSig, numSamps, STDEV, rng_inst[myid], setupinfo.verbose);
+        gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], setupinfo.verbose);
 
       // Master broadcast common signal to each antenna/subband
       MPI_Barrier(MPI_COMM_WORLD);
-      //MPI_Bcast(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
+      MPI_Bcast(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
       MPI_Barrier(MPI_COMM_WORLD);
 
       if(setupinfo.verbose >= 2)
       {
-        cout << "At time " << t << "us:" << endl;
-        cout << " Fabricate data for Antenna " << subband->getantIdx() << "subband " << subband->getsbIdx() << endl;
+        cout << "At time " << t << " us:" << endl;
+        cout << " Fabricate data for Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx() << endl;
       }
 
       // each antenna/subband fabricate its own part of the data
@@ -647,61 +607,96 @@ int main(int argc, char* argv[])
         cout << "Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx()
                            << " set current pointer back to " << subband->getlength() / 2 << endl;
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+    // Master collects process pointer from each worker node and calculates tt
+    // each subband calculates its own process pointer time
+    procptrtime = subband->getprocptr() * (1.0 / subband->getbandwidth());
+    // Master collects process pointer from each worker node and calculates tt
+    // tt is the minimum of all process pointer time
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Reduce(&procptrtime, &tt, 1, MPI_DOUBLE, MPI_MIN, MASTER, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    //cout << "Process " << myid << ", procptrtime is " << procptrtime << ", tt is " << tt << endl;
+
+    if(myid == MASTER)
+    {
+        if(setupinfo.verbose >= 2) cout << "the lowest process pointer is at time " << tt << " us" << endl;
+
+        if(tt >= tdur)
+        {
+          cout << "**the lowest process pointer time is larger than tdur!!!\n"
+                  "**Something is wrong here!!!" << endl;
+          MPI_Abort(MPI_COMM_WORLD, ERROR);
+          return (EXIT_FAILURE);
+        }
+    }
+
+    // broadcast tt
+    //-------------------------------
+    // refvptime is used here as time reference, it should be calculated based on tt?
+    // ----still need to think about it, not related to parallelisation
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(&tt, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if(setupinfo.verbose >= 1)
+      cout << "Process myid: " << myid << ", tt is " << tt << ", tdur is " << tdur <<endl;
 
     while((tt < tdur) && (timer < durus))
     {
       // process and packetize one vdif packet for each subband array
+      
       int rc = processAndPacketize(antframespersec, subband, model, setupinfo.verbose);
       if(rc)
       {
         MPI_Abort(MPI_COMM_WORLD, ERROR);
         return(EXIT_FAILURE);
       }
-      tt += refvptime;
-      timer += refvptime; 
-      if(setupinfo.verbose >= 2) cout << "tt is " << tt << ", timer is " << timer << endl;
-    }
 
-    if(myid == MASTER)
-    {
-      tt += refvptime;
-      timer += refvptime;
+      MPI_Barrier(MPI_COMM_WORLD);
+      // update tt and timer
+      if(myid == MASTER)
+      {
+        tt += refvptime;
+        timer += refvptime;
+      }
+      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Bcast(&tt, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
+      MPI_Bcast(&timer, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD);
     }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&tt, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
-    MPI_Bcast(&timer, 1, MPI_DOUBLE, MASTER, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
 
   }while(timer < durus);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // master combine all vdif files into one final vdif
+  // combine all vdif files into one final vdif
   // each datastream calls vdifzipper to combine multiple vdif files into one final vdif
 
-  if(myid== MASTER)
+  MPI_Barrier(MPI_COMM_WORLD);
+  
+  if(myid < numdatastreams)
   {
-    if(myid < numdatastreams)
-    {
-      // combine VDIF files
-      vdifzipper(config, configindex, durus, setupinfo.verbose, myid);
-    }
-
-    cout << "All data has been generated successfully, bye!" << endl;
+    // combine VDIF files
+    vdifzipper(config, configindex, durus, setupinfo.verbose, myid);
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  if(myid== MASTER)
+  {
+    cout << "All data has been generated successfully, bye!" << endl;
+  }
+  
   MPI_Barrier(MPI_COMM_WORLD);
   subband->closevdif();
   // free subband memory
   MPI_Barrier(MPI_COMM_WORLD);
  
   // free the memory allocated
-  //delete subband;
+  delete subband;
 
   if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
   // free allocated common signal memory
-  //delete commFreqSig; 
+  delete commFreqSig; 
 
   MPI_Type_free(&structtype);
 

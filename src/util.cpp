@@ -140,15 +140,15 @@ float getMinStartFreq(Configuration* config, int configindex, size_t verbose)
 
 /*
  * Generate complex numbers using GSL
+ * odd index is the real part, even index is the imaginary part
  */
 void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbose)
 {
-  int status;
-  float* real = new float [len];
-  float* imag = new float [len];
-
-  delete real;
-  delete imag;
+  for(size_t idx = 0; idx < len; idx+=2)
+  {
+    cpDst[idx] = gsl_ran_gaussian_ziggurat(rng_inst, stdev);
+    cpDst[idx+1] = gsl_ran_gaussian_ziggurat(rng_inst, stdev);
+  }
 }
 
 /*

@@ -588,7 +588,7 @@ void Subband::addstationnoise(gsl_rng *rng_inst)
 
   float* noise = new float [d_blksize*2];
   // generate station noise with the same variance as the common signal
-  gencplx(noise, d_blksize, STDEV, rng_inst, d_verbose);
+  gencplx(noise, d_blksize*2, STDEV, rng_inst, d_verbose);
 
   // add station noise to d_temp
   for(size_t idx = 0; idx < d_blksize; idx++)

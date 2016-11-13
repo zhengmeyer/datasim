@@ -30,7 +30,7 @@
 #define MEAN 1.0
 #define STDEV 1.0
 #define SEED 48573
-#define MAXANT 5
+#define MAXANT 20
 #define MAXLEN 50
 
 
