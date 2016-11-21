@@ -43,6 +43,7 @@
 #define PROCPTR 300
 #define MINPROCPTR 400
 #define TIMER 500
+#define TIMERLOCK 600
 
 using namespace std;
 
@@ -445,9 +446,10 @@ int main(int argc, char* argv[])
   // allocate memory for the common frequency domain signal
   commFreqSig = new float [numSamps*2];
   size_t stdur = tdur/stime;
-  stdur = 3;
+  
   // common signal buffer lock
   int lock = 0;
+  int timerlock = 0;
 
 
   // generate common frequency domain signal
@@ -459,6 +461,12 @@ int main(int argc, char* argv[])
       "The process may take a while, please be patient!" << endl;
     do
     {
+      // this should never be true
+      while(timerlock) 
+      {
+        cout << "waiting for lock, take a nap ..." << endl;
+        usleep(1000);
+      }
       //if(setupinfo.verbose >= 1)
         cout << "Generate " << tdur << " us signal" << endl;
       for(size_t t = 0; t < stdur; t++)
@@ -509,8 +517,12 @@ int main(int argc, char* argv[])
       for(size_t idx=1; idx < (size_t)numprocs; idx++)
         MPI_Send(&tt, 1, MPI_DOUBLE, idx, MINPROCPTR, MPI_COMM_WORLD);
 
+      timerlock = 1;
       // receive timer from worker node
       MPI_Recv(&timer, 1, MPI_DOUBLE, 1, TIMER, MPI_COMM_WORLD, &status);
+
+      for(size_t idx=1; idx < (size_t)numprocs; idx++)
+          MPI_Recv(&timerlock, 1, MPI_INT, idx, TIMERLOCK, MPI_COMM_WORLD, &status);
 
     }while(timer < durus);
   }
@@ -680,6 +692,10 @@ int main(int argc, char* argv[])
 
       if(myid == 1)
         MPI_Send(&timer, 1, MPI_DOUBLE, MASTER, TIMER, MPI_COMM_WORLD);
+
+      // release timerlock
+      timerlock = 0;
+      MPI_Send(&timerlock, 1, MPI_INT, MASTER, TIMERLOCK, MPI_COMM_WORLD);
 
     }while(timer < durus);
 
