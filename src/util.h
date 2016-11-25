@@ -23,6 +23,8 @@
 
 #include <cstdlib>
 #include <gsl/gsl_randist.h>
+#include <unistd.h>
+#include <mpi.h>
 #include "configuration.h"
 #include "subband.h"
 
@@ -32,6 +34,10 @@
 #define SEED 48573
 #define MAXANT 20
 #define MAXLEN 50
+
+#define MASTER 0
+#define COMMSIG 100
+#define LOCK 200
 
 
 typedef struct setup {
@@ -93,6 +99,11 @@ void movedata(Subband* subband, size_t verbose);
  * pack to vdif
  */
 int processAndPacketize(size_t framespersec, Subband* subband, Model* model, size_t verbose);
+
+void genSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst,
+  float* commFreqSig, int numSamps, int lock, int myid, int numprocs, Subband* subband);
+void copySignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity, float* commFreqSig,
+  int numSamps, int lock, int myid, int numprocs, Subband* subband);
 
 #endif /* __UTIL_H__ */
 

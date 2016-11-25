@@ -188,3 +188,57 @@ int processAndPacketize(size_t framespersec, Subband* subband, Model* model, siz
 
   return (EXIT_SUCCESS);
 }
+
+void genSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, float* commFreqSig,
+  int numSamps, int lock, int myid, int numprocs, Subband* subband)
+{
+  MPI_Status status;
+
+  for(size_t t = 0; t < stdur; t++)
+  {
+    // this should never be true
+    while(lock) 
+    {
+      cout << "waiting for lock, take a nap ..." << endl;
+      usleep(1000);
+    }
+    gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], verbose);
+    lock = 1;
+
+    if(verbose >= 2)
+      cout << "Master generated data for step " << t << endl;
+    for(size_t idx=1; idx < (size_t)numprocs; idx++)
+    {
+      // int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
+      //              int tag, MPI_Comm comm)
+      MPI_Send(&commFreqSig[0], numSamps*2, MPI_FLOAT, idx, COMMSIG, MPI_COMM_WORLD);
+    }
+
+    for(size_t idx=1; idx < (size_t)numprocs; idx++)
+      MPI_Recv(&lock, 1, MPI_INT, idx, LOCK, MPI_COMM_WORLD, &status);
+  }
+}
+
+void copySignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity, float* commFreqSig,
+  int numSamps, int lock, int myid, int numprocs, Subband* subband)
+{
+  MPI_Status status;
+  for(size_t t = 0; t < stdur; t++)
+  {
+    if(verbose >= 2)
+      cout << "Process " << myid << " receives common signal for time step " << t << endl;
+    // int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+    //              int source, int tag, MPI_Comm comm, MPI_Status *status)
+    MPI_Recv(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, &status);
+    if(verbose >= 2)
+    {
+      cout << "At time " << t << "us:" << endl;
+      cout << " Fabricate data for Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx() << endl;
+    }
+    // each antenna/subband fabricate its own part of the data
+    subband->fabricatedata(commFreqSig, rng_inst[myid], sfluxdensity); 
+    // release lock
+    lock = 0;
+    MPI_Send(&lock, 1, MPI_INT, MASTER, LOCK, MPI_COMM_WORLD);
+  }
+}

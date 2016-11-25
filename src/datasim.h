@@ -31,6 +31,14 @@
   #define CORR 0.05               // amplitude of common signal relative to the station receiver noise
   #define BSMX 1024 * 1024
 
+	#define ERROR 50
+	#define INFO1 1
+	#define INFO2 2
+	#define PROCPTR 300
+	#define MINPROCPTR 400
+	#define TIMER 500
+	#define TIMERLOCK 600
+
 #endif /* __DATASIM_H__ */
 
 /*

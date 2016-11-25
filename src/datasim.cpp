@@ -34,17 +34,6 @@
 #include "model.h"
 #include "vdifzipper.h"
 
-#define MASTER 0
-#define ERROR 50
-#define INFO1 1
-#define INFO2 2
-#define COMMSIG 100
-#define LOCK 200
-#define PROCPTR 300
-#define MINPROCPTR 400
-#define TIMER 500
-#define TIMERLOCK 600
-
 using namespace std;
 
 static void usage(int argc, char **argv)
@@ -447,105 +436,27 @@ int main(int argc, char* argv[])
   commFreqSig = new float [numSamps*2];
   size_t stdur = tdur/stime;
   
-  // common signal buffer lock
-  int lock = 0;
-  int timerlock = 0;
+  Subband* subband;
+  int antidx = sbinfo[0];
+  int sbidx = sbinfo[1];
 
+  // each process initializes its corresponding subband
+  size_t length, startIdx, blksize;
+  size_t vpsamps;   // number of samples in a vdif packet
+  size_t vpbytes;   // number of bytes in a single-thread vdif packet
+  size_t framebytes;
+  float freq, bw;
+  string antname;
+  int mjd, seconds;
+  f64* tempcoeffs;
+  f64* delaycoeffs;
+  double antvptime;
+  size_t antframespersec;
 
-  // generate common frequency domain signal
-  // and send it to each subband of each antenna
-  if(myid == MASTER)
-  {
-    MPI_Status status;
-    cout << "Start generating data ...\n"
-      "The process may take a while, please be patient!" << endl;
-    do
-    {
-      // this should never be true
-      while(timerlock) 
-      {
-        cout << "waiting for lock, take a nap ..." << endl;
-        usleep(1000);
-      }
-      //if(setupinfo.verbose >= 1)
-        cout << "Generate " << tdur << " us signal" << endl;
-      for(size_t t = 0; t < stdur; t++)
-      {
-        // this should never be true
-        while(lock) 
-        {
-          cout << "waiting for lock, take a nap ..." << endl;
-          usleep(1000);
-        }
-        gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], setupinfo.verbose);
-        lock = 1;
-
-        if(setupinfo.verbose >= 2)
-          cout << "Master generated data for step " << t << endl;
-        for(size_t idx=1; idx < (size_t)numprocs; idx++)
-        {
-          // int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
-          //              int tag, MPI_Comm comm)
-          MPI_Send(&commFreqSig[0], numSamps*2, MPI_FLOAT, idx, COMMSIG, MPI_COMM_WORLD);
-        }
-
-        for(size_t idx=1; idx < (size_t)numprocs; idx++)
-          MPI_Recv(&lock, 1, MPI_INT, idx, LOCK, MPI_COMM_WORLD, &status);
-      }
-
-      tt = tdur+1;
-      for(size_t idx=1; idx < (size_t)numprocs; idx++)
-      {
-        MPI_Recv(&procptrtime, 1, MPI_DOUBLE, idx, PROCPTR, MPI_COMM_WORLD, &status);
-        // calculate the lowest procptrtime
-        if(procptrtime < tt) tt = procptrtime;
-        if(setupinfo.verbose >= 2) cout << "procptrtime received from process " << idx << " is " << procptrtime << endl;
-      }
-
-      if(setupinfo.verbose >= 2) 
-        cout << "the lowest process pointer is at time " << tt << " us" << endl;
-
-      if(tt >= tdur)
-      {
-        cout << "**the lowest process pointer time is larger than tdur!!!\n"
-                "**Something is wrong here!!!" << endl;
-        MPI_Abort(MPI_COMM_WORLD, ERROR);
-        return (EXIT_FAILURE);
-      }
-
-      // send the lowest procptrtime to all processes
-      for(size_t idx=1; idx < (size_t)numprocs; idx++)
-        MPI_Send(&tt, 1, MPI_DOUBLE, idx, MINPROCPTR, MPI_COMM_WORLD);
-
-      timerlock = 1;
-      // receive timer from worker node
-      MPI_Recv(&timer, 1, MPI_DOUBLE, 1, TIMER, MPI_COMM_WORLD, &status);
-
-      for(size_t idx=1; idx < (size_t)numprocs; idx++)
-          MPI_Recv(&timerlock, 1, MPI_INT, idx, TIMERLOCK, MPI_COMM_WORLD, &status);
-
-    }while(timer < durus);
-  }
-  else
+  if(myid != MASTER)
   {
     // every antenna initialize its own subbands for antenna-based parallelization
 
-    int antidx = sbinfo[0];
-    int sbidx = sbinfo[1];
-
-    // each process initializes its corresponding subband
-    size_t length, startIdx, blksize;
-    size_t vpsamps;   // number of samples in a vdif packet
-    size_t vpbytes;   // number of bytes in a single-thread vdif packet
-    size_t framebytes;
-    float freq, bw;
-    string antname;
-    int mjd, seconds;
-    f64* tempcoeffs;
-    f64* delaycoeffs;
-    double antvptime;
-    size_t antframespersec;
-    
     mjd = config->getStartMJD();
     seconds = config->getStartSeconds();
     if(setupinfo.verbose >= 1)
@@ -615,7 +526,7 @@ int main(int argc, char* argv[])
            << "  recorded freq is " << freq << endl;
     }
 
-    Subband* subband = new Subband(startIdx, blksize, length, antidx, setupinfo.antSEFDs[antidx], sbidx, 
+    subband = new Subband(startIdx, blksize, length, antidx, setupinfo.antSEFDs[antidx], sbidx, 
                        vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose);
 
     // finish initializing subband
@@ -625,29 +536,85 @@ int main(int argc, char* argv[])
 
     if(setupinfo.verbose == 1)
       cout << "Process " << myid << ": " << subband->getantIdx() << " " << subband->getsbIdx() << endl;
+  }
+/*
+  // common signal buffer lock
+  int lock = 0;
+  int timerlock = 0;
+  
+  if(myid == MASTER)
+    genSignal(stdur, setupinfo.verbose, rng_inst, commFreqSig, numSamps, lock, myid, numprocs, subband);
+  else
+    copySignal(stdur, setupinfo.verbose, rng_inst, setupinfo.sfluxdensity, commFreqSig, numSamps, lock, myid, numprocs, subband);
+  
+  // after TDUR time signal is generated for each subband array
+  // set the current pointer of each array back to the beginning of the second half
 
+  subband->setcptr(subband->getlength() / 2);
+  if(setupinfo.verbose >= 2) 
+    cout << "Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx()
+                       << " set current pointer back to " << subband->getlength() / 2 << endl;
 
+  // generate common frequency domain signal
+  // and send it to each subband of each antenna
+  if(myid == MASTER)
+  {
+    MPI_Status status;
+    cout << "Start generating data ...\n"
+      "The process may take a while, please be patient!" << endl;
+    do
+    {
+      // this should never be true
+      while(timerlock) 
+      {
+        cout << "waiting for lock, take a nap ..." << endl;
+        usleep(1000);
+      }
+      //if(setupinfo.verbose >= 1)
+        cout << "Generate " << tdur << " us signal" << endl;
+
+      genSignal(stdur, setupinfo.verbose, rng_inst, commFreqSig, numSamps, lock, myid, numprocs, subband);
+
+      tt = tdur+1;
+      for(size_t idx=1; idx < (size_t)numprocs; idx++)
+      {
+        MPI_Recv(&procptrtime, 1, MPI_DOUBLE, idx, PROCPTR, MPI_COMM_WORLD, &status);
+        // calculate the lowest procptrtime
+        if(procptrtime < tt) tt = procptrtime;
+        if(setupinfo.verbose >= 2) cout << "procptrtime received from process " << idx << " is " << procptrtime << endl;
+      }
+
+      if(setupinfo.verbose >= 2) 
+        cout << "the lowest process pointer is at time " << tt << " us" << endl;
+
+      if(tt >= tdur)
+      {
+        cout << "**the lowest process pointer time is larger than tdur!!!\n"
+                "**Something is wrong here!!!" << endl;
+        MPI_Abort(MPI_COMM_WORLD, ERROR);
+        return (EXIT_FAILURE);
+      }
+
+      // send the lowest procptrtime to all processes
+      for(size_t idx=1; idx < (size_t)numprocs; idx++)
+        MPI_Send(&tt, 1, MPI_DOUBLE, idx, MINPROCPTR, MPI_COMM_WORLD);
+
+      timerlock = 1;
+      // receive timer from worker node
+      MPI_Recv(&timer, 1, MPI_DOUBLE, 1, TIMER, MPI_COMM_WORLD, &status);
+
+      for(size_t idx=1; idx < (size_t)numprocs; idx++)
+          MPI_Recv(&timerlock, 1, MPI_INT, idx, TIMERLOCK, MPI_COMM_WORLD, &status);
+
+    }while(timer < durus);
+  }
+  else
+  {
     MPI_Status status;
     do
     {
-      for(size_t t = 0; t < stdur; t++)
-      {
-        if(setupinfo.verbose >= 2)
-          cout << "Process " << myid << " receives common signal for time step " << t << endl;
-        // int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
-        //              int source, int tag, MPI_Comm comm, MPI_Status *status)
-        MPI_Recv(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, &status);
-        if(setupinfo.verbose >= 2)
-        {
-          cout << "At time " << t << "us:" << endl;
-          cout << " Fabricate data for Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx() << endl;
-        }
-        // each antenna/subband fabricate its own part of the data
-        subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
-        // release lock
-        lock = 0;
-        MPI_Send(&lock, 1, MPI_INT, MASTER, LOCK, MPI_COMM_WORLD);
-      }
+
+      copySignal(stdur, setupinfo.verbose, rng_inst, setupinfo.sfluxdensity, commFreqSig, numSamps, lock, myid, numprocs, subband);
       // after TDUR time signal is generated for each subband array
       // set the current pointer of each array back to the beginning of the second half
 
@@ -703,6 +670,7 @@ int main(int argc, char* argv[])
     // free allocated subband memory
     delete subband;
   }
+*/
 /*
 
   MPI_Barrier(MPI_COMM_WORLD);

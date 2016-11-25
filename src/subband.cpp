@@ -38,6 +38,100 @@ using namespace std;
 /*
  * Constructor
  */
+Subband::Subband()
+  : d_startIdx(0), d_blksize(0), d_length(0), d_antIdx(0), d_antSEFD(0), d_sbIdx(0),
+    d_vpbytes(0), d_vpsamps(0), d_bandwidth(0), d_antname(0),
+    d_mjd(0), d_seconds(0), d_freq(0), d_verbose(0)
+{
+  d_starttime = 0;
+
+  // current pointer index for signal generation
+  d_cptr = 0;
+
+  // calculate the sample time and nearest sample
+  d_sampletime = 0;
+  d_vptime = 0;
+
+  // use the time at the middle of a packet to calculate nearest sample
+  d_nearestsample = 0;
+  // fractinal sample error of the nearest sample (in us)
+  // is nearestsampletime - starttime
+  d_fracsamperror = 0;
+
+  // initialize packet counter
+  d_pkcounter = 0;
+  // initialize shift counter
+  d_shift = 0;
+
+  // process pointer start at delay offset
+  d_procptr =  0;
+
+  // vdif file name to write data to
+  d_filename = ""; 
+  // open the output stream
+  d_vdiffile.open(""); 
+
+  try
+  {
+    //d_arr = vectorAlloc_cf32(d_length);
+    d_arr = new cf32[d_length];
+    // allocate memory for d_temp and d_tempt
+    d_temp = vectorAlloc_cf32(d_blksize);
+    d_tempt = vectorAlloc_cf32(d_blksize);
+  }
+  catch(bad_alloc& ba)
+  {
+    cout << "!!!!Failed allocating memory!!!!!" << endl;
+    cout << "Exception caught: " << ba.what() << endl;
+  }
+
+  // initialize pDFTSpecC and bufsize
+  vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
+  vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
+  vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
+
+  // allocate memory for DFT buffer
+  d_bufsig = vectorAlloc_u8(d_bufsigsize);
+  d_bufproc = vectorAlloc_u8(d_bufprocsize);
+  d_bufCToR = vectorAlloc_u8(d_bufCToRsize);
+
+  // allocate memory for process buffer with size of vpsamps
+  d_procbuffer = vectorAlloc_cf32(d_vpsamps);
+  d_procbuffreq = vectorAlloc_cf32(d_vpsamps);
+  d_procbufferrot = vectorAlloc_cf32(d_vpsamps);
+  d_procbuffreqcorr = vectorAlloc_cf32(d_vpsamps);
+
+  // allocate memory for complex and real signal array with size of 2*vpsamps
+  // arrays used to convert complex to real
+  d_buffreqtemp = vectorAlloc_cf32(2 * d_vpsamps);
+  d_realC = vectorAlloc_cf32(2 * d_vpsamps);
+  d_real = vectorAlloc_f32(2 * d_vpsamps);
+
+  // allocate memory for d_vdifbuf
+  d_vdifbuf = vectorAlloc_u8(d_vpbytes);  // initialize sample count and threshhold multiplier for quantization
+  // allocate memory for d_delaycoeffs
+  d_delaycoeffs = vectorAlloc_f64(2);
+  // initialize delay coeffs
+  d_delaycoeffs[0] = 0;
+  d_delaycoeffs[1] = 0;
+  // allocate memory for fractional sample error with size of vpsamps
+  d_fracsamperrbuf = vectorAlloc_cf32(d_vpsamps);
+  // allocate memory for fringe rotation buffer with size of vpsamps
+  d_fringerotbuf = vectorAlloc_cf32(d_vpsamps);
+
+  // initialize VDIF header
+  createVDIFHeader((vdif_header *)d_vdifbuf, d_vpbytes - VDIF_HEADER_BYTES, d_sbIdx, BITS, 1, ISCOMPLEX, (char *)d_antname.c_str());
+  setVDIFEpoch((vdif_header *)d_vdifbuf, d_mjd);
+  setVDIFFrameMJDSec((vdif_header *)d_vdifbuf, d_mjd*86400 + d_seconds);
+
+  d_sampcount = 0;
+  d_tmul = 1.0;
+  d_square = 0.0;
+}
+
 Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
              size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth, string const &antname,
              int const &mjd, int const &seconds, float const &freq, size_t const &verbose)

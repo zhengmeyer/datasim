@@ -30,6 +30,7 @@
 class Subband{
   public:
     // constructor and destructor
+    Subband();
     Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
           size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth,
           std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose);
