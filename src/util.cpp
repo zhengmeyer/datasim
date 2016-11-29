@@ -193,7 +193,7 @@ void genSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, float* comm
   int numSamps, int lock, int myid, int numprocs, Subband* subband)
 {
   MPI_Status status;
-
+  lock = 0;
   for(size_t t = 0; t < stdur; t++)
   {
     // this should never be true
@@ -204,6 +204,14 @@ void genSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, float* comm
     }
     gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], verbose);
     lock = 1;
+
+    if(verbose >= 2)
+    {
+      cout << "Process " << myid << ":\n";
+      for(size_t t = 0; t < 9; t++)
+        cout << "commFreqSig[" << t << "] is " << commFreqSig[t] <<  " "; 
+      cout << endl;
+    }
 
     if(verbose >= 2)
       cout << "Master generated data for step " << t << endl;
@@ -230,6 +238,15 @@ void copySignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxd
     // int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
     //              int source, int tag, MPI_Comm comm, MPI_Status *status)
     MPI_Recv(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, &status);
+
+    if(verbose >= 2)
+    {
+      cout << "Process " << myid << ":\n";
+      for(size_t t = 0; t < 9; t++)
+        cout << "commFreqSig[" << t << "] is " << commFreqSig[t] <<  " "; 
+      cout << endl;
+    }
+ 
     if(verbose >= 2)
     {
       cout << "At time " << t << "us:" << endl;

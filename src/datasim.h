@@ -38,6 +38,7 @@
 	#define MINPROCPTR 400
 	#define TIMER 500
 	#define TIMERLOCK 600
+	#define FIRSTLOCK 700
 
 #endif /* __DATASIM_H__ */
 
