@@ -666,7 +666,7 @@ int main(int argc, char* argv[])
         if(setupinfo.verbose >= 2) cout << "procptrtime received from process " << idx << " is " << procptrtime << endl;
       }
 
-      //if(setupinfo.verbose >= 2) 
+      if(setupinfo.verbose >= 2) 
         cout << "the lowest process pointer is at time " << tt << " us" << endl;
 
       if(tt >= tdur)
@@ -740,7 +740,7 @@ int main(int argc, char* argv[])
 
       // receive lowest procptrtime as time reference tt
       MPI_Recv(&tt, 1, MPI_DOUBLE, MASTER, MINPROCPTR, MPI_COMM_WORLD, &status);
-      //if(setupinfo.verbose >= 2)
+      if(setupinfo.verbose >= 2)
         cout << "Process " << myid << " receved lowest procptrtime " << tt << " from master" << endl;
 
       if(tt >= tdur)
