@@ -8,7 +8,8 @@ CC = mpic++
 #CFLAGS = -Wall -std=c++0x -DDEBUG=1
 #CFLAGS = -Wall -std=c++0x -DTEST=1
 #CFLAGS = -Wall -std=c++0x -DTEST=1 -DDEBUG=1
-CFLAGS = -Wall -std=c++0x
+#CFLAGS = -Wall -std=c++0x
+CFLAGS = -g -O3 -Wall -std=c++0x
 LDFLAGS =
 LIBS = -lmpifxcorr -lgsl -lgslcblas
 
