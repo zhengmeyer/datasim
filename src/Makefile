@@ -192,7 +192,8 @@ am__define_uniq_tagged_files = \
   done | $(am__uniquify_input)`
 ETAGS = etags
 CTAGS = ctags
-am__DIST_COMMON = $(srcdir)/Makefile.in $(top_srcdir)/depcomp
+am__DIST_COMMON = $(srcdir)/Makefile.in $(top_srcdir)/depcomp COPYING \
+	INSTALL
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = ${SHELL} /home/zheng/src/datasim/missing aclocal-1.15
 AMTAR = $${TAR-tar}
@@ -339,7 +340,7 @@ datasim_SOURCES = subband.h \
                   datasim.h \
                   datasim.cpp
 
-AM_CFLAGS = -Wall -std=c++0x
+AM_CFLAGS = -g -O3 -Wall -std=c++0x
 
 # DiFX library specific flags
 # using pkg-config

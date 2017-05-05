@@ -11,7 +11,7 @@ datasim_SOURCES = subband.h \
                   datasim.h \
                   datasim.cpp
 
-AM_CFLAGS = -Wall -std=c++0x
+AM_CFLAGS = -g -O3 -Wall -std=c++0x
 
 # DiFX library specific flags
 # using pkg-config
