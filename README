@@ -23,7 +23,6 @@ $ ./configure --prefix=$HOME
 $ make
 $ make install
 
-
 Usage:
 1. source DiFX setup.bash file
 2. source HOPS hops.bash file

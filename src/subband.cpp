@@ -257,6 +257,15 @@ void Subband::processdata()
   // apply fringe rotation
   applyfringerotation();
 
+//-----------------------------------
+  // add sin wave here
+  // to simulate pulse cal (phase cal)
+  // amplitude of sin wave can be 1/10 RMS or 1/100 RMS of original signal
+  // Asin(ft)
+  // add operation
+  // addpulsecal()
+
+
   // complex to real conversion
   // 1. transform signal from time domain to frequency domain
   DFT(d_procbufferrot, d_procbuffreq, d_pDFTSpecCproc, d_bufproc);

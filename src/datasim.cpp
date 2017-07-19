@@ -62,19 +62,27 @@ static void usage(int argc, char **argv)
   cout << "     --test        run in test mode, generate 1 second data for each station,\n"
        << "                   no matter what's given in the configuration file." << endl;
   cout << endl;
+  cout << "     -l" << endl;
+  cout << "     --line        line signal in the form of frequency,amplitude." << endl;
+  cout << endl;
+  cout << "     -i" << endl;
+  cout << "     --injection   injection signal in the form of frequency,amplitude." << endl;
+  cout << endl;
 }
 
 static void cmdparser(int argc, char* argv[], setup &setupinfo)
 {
   char tmp;
   static struct option long_options[] = {
-    {"help",    no_argument,        0,  'h'},
-    {"flux",    required_argument,  0,  'f'},
-    {"sefd",    required_argument,  0,  's'},
-    {"seed",    required_argument,  0,  'd'},
-    {"verbose", no_argument,        0,  'v'},
-    {"test",    no_argument,        0,  't'},
-    {0,         0,                  0,   0 }
+    {"help",      no_argument,        0,  'h'},
+    {"flux",      required_argument,  0,  'f'},
+    {"sefd",      required_argument,  0,  's'},
+    {"seed",      required_argument,  0,  'd'},
+    {"verbose",   no_argument,        0,  'v'},
+    {"test",      no_argument,        0,  't'},
+    {"line",      required_argument,  0,  'l'},
+    {"injection", required_argument,  0,  'i'},
+    {0,           0,                  0,   0 }
   };
   int long_index = 0;
   while((tmp=getopt_long(argc,argv,"hf:s:d:vt",
@@ -87,7 +95,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
         exit (EXIT_SUCCESS);
         break;
       case 'f':
-        if(*optarg == '-' || atof(optarg) == 0.0)
+        if(*optarg == '-' || (atof(optarg) - 0.0) < EPSILON)
         {
           cerr << "Option -f requires a non-zero floating-point number as argument." << endl;
           exit (EXIT_FAILURE);
@@ -126,6 +134,40 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
       case 't':
       setupinfo.test = 1;
       break;
+      case 'l':
+        if(*optarg == '-' || *optarg == ' ')
+        {
+          cerr << "Option -l requires a comma-separated list of float as argument." << endl;
+          exit (EXIT_FAILURE);
+        }
+        else
+        {
+          istringstream ss(optarg);
+          string token;
+          for(size_t i = 0; i < setupinfo.linesignal.size())
+          {
+            getline(ss, token, ',')
+            setupinfo.linesignal[i].push_back(atof(token.c_str()));
+          }
+        }
+        break;
+      case 'i':
+        if(*optarg == '-' || *optarg == ' ')
+        {
+          cerr << "Option -i requires a comma-separated list of float as argument." << endl;
+          exit (EXIT_FAILURE);
+        }
+        else
+        {
+          istringstream ss(optarg);
+          string token;
+          for(size_t i = 0; i < setupinfo.injectionsignal.size())
+          {
+            getline(ss, token, ',')
+            setupinfo.injectionsignal[i].push_back(atof(token.c_str()));
+          }
+        }
+        break;
       default:
         usage(argc, argv);
         exit (EXIT_FAILURE);
@@ -159,6 +201,10 @@ int main(int argc, char* argv[])
   setupinfo.seed = SEED;
   setupinfo.sfluxdensity = 1;     // source flux density in Jansky
   setupinfo.inputfilename = "";   // .input file name
+  for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
+    setupinfo.linesignal[i] = 0;
+  for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
+    setupinfo.injectionsignal[i] = 0;
 
   // parse command line argument
   cmdparser(argc, argv, setupinfo);
