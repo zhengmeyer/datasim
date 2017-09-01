@@ -210,6 +210,8 @@ int main(int argc, char* argv[])
 
   int numprocs, myid;
   MPI_Status status;
+  double start, end, elapse;
+
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
@@ -327,6 +329,7 @@ int main(int argc, char* argv[])
   int sbcount = 0;
   if(myid == MASTER)
   {
+    start = MPI_Wtime();
     // array with num-antenna number of elements
     // the value of which is the number of subbands the corresponding antenna has
     vector<int> antsb;
@@ -795,14 +798,18 @@ int main(int argc, char* argv[])
   MPI_Barrier(MPI_COMM_WORLD);
   if(myid== MASTER)
   {
+
+    end = MPI_Wtime();
+    elapse = (end - start)/60.0; // convert time from seconds to minutes
+  
     cout << "All data has been generated successfully, bye!" << endl;
+    cout << "Total duration is " << elapse << " minutes." << endl;
   }
 
 
   if(setupinfo.verbose >= 2) cout << "free memory for commFreq" << endl;
   // free allocated common signal memory
   delete commFreqSig; 
-
 
   MPI_Type_free(&structtype);
 

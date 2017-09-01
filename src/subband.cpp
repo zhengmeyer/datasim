@@ -43,6 +43,7 @@ Subband::Subband()
     d_vpbytes(0), d_vpsamps(0), d_bandwidth(0), d_antname(0),
     d_mjd(0), d_seconds(0), d_freq(0), d_verbose(0)
 {
+  int status;
   d_starttime = 0;
 
   // current pointer index for signal generation
@@ -86,12 +87,16 @@ Subband::Subband()
   }
 
   // initialize pDFTSpecC and bufsize
-  vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
-  vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
-  vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
+  //vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
+  //vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
+  //vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
+  status = vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufsigsize, &d_bufsig);
+  status = vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufprocsize, &d_bufproc);
+  status = vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate, &d_bufCToRsize, &d_bufCToR);
+
 
   // allocate memory for DFT buffer
   d_bufsig = vectorAlloc_u8(d_bufsigsize);
@@ -139,6 +144,7 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
     d_vpbytes(vpbytes), d_vpsamps(vpsamps), d_bandwidth(bandwidth), d_antname(antname),
     d_mjd(mjd), d_seconds(seconds), d_freq(freq), d_verbose(verbose)
 {
+  int status;
   d_starttime = delaycoeffs[1];
 
   // current pointer index for signal generation
@@ -197,12 +203,16 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
   }
 
   // initialize pDFTSpecC and bufsize
-  vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
-  vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
-  vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
+  //vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
+  //vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
+  //vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
+  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
+  status = vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufsigsize, &d_bufsig);
+  status = vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufprocsize, &d_bufproc);
+  status = vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate, &d_bufCToRsize, &d_bufCToR);
+
 
   // allocate memory for DFT buffer
   d_bufsig = vectorAlloc_u8(d_bufsigsize);
