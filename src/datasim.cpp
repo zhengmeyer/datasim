@@ -263,9 +263,7 @@ int main(int argc, char* argv[])
   MPI_Type_commit(&structtype);
 
   // broadcast setupinfo
-  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Bcast(&setupinfo, 1, structtype, MASTER, MPI_COMM_WORLD);
-  MPI_Barrier(MPI_COMM_WORLD);
 
   //cout << "Process " << myid << ": " << setupinfo.seed << " " << setupinfo.inputfilename << endl;
 
@@ -411,9 +409,7 @@ int main(int argc, char* argv[])
   // scatter sbinfo to each process
   // disbribute (antidx, sbidx) information to each process
 
-  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Scatter(&subbandsinfo[0], 2, MPI_INT, &sbinfo[0], 2, MPI_INT, MASTER, MPI_COMM_WORLD);
-  MPI_Barrier(MPI_COMM_WORLD);
   
 //==================================================
   // calculate specRes, number of samples per time block, step time
@@ -553,7 +549,7 @@ int main(int argc, char* argv[])
     cout << "Start generating data ...\n"
     "The process may take a while, please be patient!" << endl;
 
-    cout << "Generate " << tdur << " us signal" << endl;
+    if(setupinfo.verbose >= 1) cout << "Generate " << tdur << " us signal" << endl;
     /*
     for(size_t t = 0; t < stdur; t++)
     {
@@ -613,8 +609,6 @@ int main(int argc, char* argv[])
                          << " set current pointer back to " << subband->getlength() / 2 << endl;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-
   // common signal buffer lock
   //int lock = 0;
   int timerlock = 0;
@@ -629,7 +623,7 @@ int main(int argc, char* argv[])
         cout << "waiting for lock, take a nap ..." << endl;
         usleep(1000);
       }
-      //if(setupinfo.verbose >= 1)
+      if(setupinfo.verbose >= 1)
         cout << "Generate " << tdur << " us signal" << endl;
 
       /*
@@ -682,7 +676,7 @@ int main(int argc, char* argv[])
 
       // send the lowest procptrtime to all processes
       for(size_t idx=1; idx < (size_t)numprocs; idx++)
-       MPI_Send(&tt, 1, MPI_DOUBLE, idx, MINPROCPTR, MPI_COMM_WORLD);
+        MPI_Send(&tt, 1, MPI_DOUBLE, idx, MINPROCPTR, MPI_COMM_WORLD);
 
       timerlock = 1;
       for(size_t idx=1; idx < (size_t)numprocs; idx++)
@@ -691,7 +685,7 @@ int main(int argc, char* argv[])
       // receive timer from worker node
       MPI_Recv(&timer, 1, MPI_DOUBLE, 1, TIMER, MPI_COMM_WORLD, &status);
 
-      cout << "process " << myid << " timer is " << timer << endl;
+      if(setupinfo.verbose >= 2) cout << "process " << myid << " timer is " << timer << endl;
     }while(timer < durus);
   }
   else
@@ -777,7 +771,7 @@ int main(int argc, char* argv[])
       if(myid == 1)
         MPI_Send(&timer, 1, MPI_DOUBLE, MASTER, TIMER, MPI_COMM_WORLD);
 
-      cout << "process " << myid << " updated tt is " << tt << " timer is " << timer << endl;
+      if(setupinfo.verbose >=2) cout << "process " << myid << " updated tt is " << tt << " timer is " << timer << endl;
 
     }while(timer < durus);
 
@@ -786,8 +780,6 @@ int main(int argc, char* argv[])
     delete subband;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-
 
   if(myid < numdatastreams)
   {
@@ -795,7 +787,6 @@ int main(int argc, char* argv[])
     vdifzipper(config, configindex, durus, setupinfo.verbose, myid);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
   if(myid== MASTER)
   {
 
