@@ -550,55 +550,11 @@ int main(int argc, char* argv[])
     "The process may take a while, please be patient!" << endl;
 
     if(setupinfo.verbose >= 1) cout << "Generate " << tdur << " us signal" << endl;
-    /*
-    for(size_t t = 0; t < stdur; t++)
-    {
-      // this should never be true
-      while(firstlock) 
-      {
-        cout << "waiting for lock, take a nap ..." << endl;
-        usleep(1000);
-      }
-      gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], setupinfo.verbose);
-      firstlock = 1;
 
-      if(setupinfo.verbose >= 2)
-        cout << "Master generated data for step " << t << endl;
-      for(size_t idx=1; idx < (size_t)numprocs; idx++)
-      {
-        // int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
-        //              int tag, MPI_Comm comm)
-        MPI_Send(&commFreqSig[0], numSamps*2, MPI_FLOAT, idx, COMMSIG, MPI_COMM_WORLD);
-      }
-
-      for(size_t idx=1; idx < (size_t)numprocs; idx++)
-        MPI_Recv(&firstlock, 1, MPI_INT, idx, FIRSTLOCK, MPI_COMM_WORLD, &status);
-    }
-    */
     genSignal(stdur, setupinfo.verbose, rng_inst, commFreqSig, numSamps, lock, myid, numprocs, subband);
   }
   else
   {
-    /*
-    for(size_t t = 0; t < stdur; t++)
-    {
-      if(setupinfo.verbose >= 2)
-        cout << "Process " << myid << " receives common signal for time step " << t << endl;
-      // int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
-      //              int source, int tag, MPI_Comm comm, MPI_Status *status)
-      MPI_Recv(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, &status);
-      if(setupinfo.verbose >= 2)
-      {
-        cout << "At time " << t << "us:" << endl;
-        cout << " Fabricate data for Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx() << endl;
-      }
-      // each antenna/subband fabricate its own part of the data
-      subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
-      // release lock
-      firstlock = 0;
-      MPI_Send(&firstlock, 1, MPI_INT, MASTER, FIRSTLOCK, MPI_COMM_WORLD);
-    }
-    */
     copySignal(stdur, setupinfo.verbose, rng_inst, setupinfo.sfluxdensity, commFreqSig, numSamps, lock, myid, numprocs, subband);
     // after TDUR time signal is generated for each subband array
     // set the current pointer of each array back to the beginning of the second half
@@ -626,31 +582,6 @@ int main(int argc, char* argv[])
       if(setupinfo.verbose >= 1)
         cout << "Generate " << tdur << " us signal" << endl;
 
-      /*
-      for(size_t t = 0; t < stdur; t++)
-      {
-        // this should never be true
-        while(lock) 
-        {
-          cout << "waiting for lock, take a nap ..." << endl;
-          usleep(1000);
-        }
-        gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], setupinfo.verbose);
-        lock = 1;
-
-        if(setupinfo.verbose >= 2)
-          cout << "Master generated data for step " << t << endl;
-        for(size_t idx=1; idx < (size_t)numprocs; idx++)
-        {
-          // int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
-          //              int tag, MPI_Comm comm)
-          MPI_Send(&commFreqSig[0], numSamps*2, MPI_FLOAT, idx, COMMSIG, MPI_COMM_WORLD);
-        }
-
-        for(size_t idx=1; idx < (size_t)numprocs; idx++)
-          MPI_Recv(&lock, 1, MPI_INT, idx, LOCK, MPI_COMM_WORLD, &status);
-      }
-      */
 
       genSignal(stdur, setupinfo.verbose, rng_inst, commFreqSig, numSamps, lock, myid, numprocs, subband);
 
@@ -697,27 +628,6 @@ int main(int argc, char* argv[])
       // i.e. data is moved half array ahead, therefore process pointer 
       // is moved half array ahead
       movedata(subband, setupinfo.verbose);
-
-      /*
-      for(size_t t = 0; t < stdur; t++)
-      {
-        if(setupinfo.verbose >= 2)
-          cout << "Process " << myid << " receives common signal for time step " << t << endl;
-        // int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
-        //              int source, int tag, MPI_Comm comm, MPI_Status *status)
-        MPI_Recv(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, &status);
-        if(setupinfo.verbose >= 2)
-        {
-          cout << "At time " << t << "us:" << endl;
-          cout << " Fabricate data for Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx() << endl;
-        }
-        // each antenna/subband fabricate its own part of the data
-        subband->fabricatedata(commFreqSig, rng_inst[myid], setupinfo.sfluxdensity); 
-        // release lock
-        lock = 0;
-        MPI_Send(&lock, 1, MPI_INT, MASTER, LOCK, MPI_COMM_WORLD);
-      }
-      */
 
       copySignal(stdur, setupinfo.verbose, rng_inst, setupinfo.sfluxdensity, commFreqSig, numSamps, lock, myid, numprocs, subband);
       // after TDUR time signal is generated for each subband array
