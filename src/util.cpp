@@ -189,55 +189,33 @@ int processAndPacketize(size_t framespersec, Subband* subband, Model* model, siz
   return (EXIT_SUCCESS);
 }
 
-void genSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, float* commFreqSig,
-  int numSamps, int myid, int numprocs, Subband* subband, MPI_Request request[])
+void prepareSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity,
+  int numSamps, int myid, int numprocs, Subband* subband)
 {
-  for(size_t t = 0; t < stdur; t++)
+  float* commFreqSig1;                  // 0.5 seconds common frequency domain signal
+  float* commFreqSig2;
+  size_t workers = size_t(numprocs - 1);
+  MPI_Request request1[workers], request2[workers];
+  MPI_Status istatus1[workers], istatus2[workers];
+
+  // allocate memory for the common frequency domain signal
+  commFreqSig1 = new float [numSamps*2];
+  commFreqSig2 = new float [numSamps*2];
+
+  if(myid == MASTER)
   {
-    gencplx(commFreqSig, numSamps*2, STDEV, rng_inst[myid], verbose);
+    gencplx(commFreqSig1, numSamps*2*stdur, STDEV, rng_inst[myid], verbose);
+    for(size_t idx=0; idx < workers; idx++)
+      MPI_Isend(&commFreqSig1[0], numSamps*2*stdur, MPI_FLOAT, idx, COMMSIG, MPI_COMM_WORLD, &request1[idx]);
 
-    if(verbose >= 2)
-    {
-      cout << "Process " << myid << ":\n";
-      for(size_t t = 0; t < 9; t++)
-        cout << "commFreqSig[" << t << "] is " << commFreqSig[t] <<  " "; 
-      cout << endl;
-    }
-
-    if(verbose >= 2)
-      cout << "Master generated data for step " << t << endl;
-    for(size_t idx=1; idx < (size_t)numprocs; idx++)
-    {
-      MPI_Isend(&commFreqSig[0], numSamps*2, MPI_FLOAT, idx, COMMSIG, MPI_COMM_WORLD, &request[idx]);
-    }
   }
-}
-
-void copySignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity, float* commFreqSig,
-  int numSamps, int myid, int numprocs, Subband* subband, MPI_Status *status)
-{
-  for(size_t t = 0; t < stdur; t++)
+  else
   {
-    if(verbose >= 2)
-      cout << "Process " << myid << " receives common signal for time step " << t << endl;
-    // int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
-    //              int source, int tag, MPI_Comm comm, MPI_Status *status)
-    MPI_Recv(&commFreqSig[0], numSamps*2, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, status);
-
-    if(verbose >= 2)
-    {
-      cout << "Process " << myid << ":\n";
-      for(size_t t = 0; t < 9; t++)
-        cout << "commFreqSig[" << t << "] is " << commFreqSig[t] <<  " "; 
-      cout << endl;
-    }
- 
-    if(verbose >= 2)
-    {
-      cout << "At time " << t << "us:" << endl;
-      cout << " Fabricate data for Antenna " << subband->getantIdx() << " subband " << subband->getsbIdx() << endl;
-    }
-    // each antenna/subband fabricate its own part of the data
-    subband->fabricatedata(commFreqSig, rng_inst[myid], sfluxdensity); 
+    MPI_Recv(&commFreqSig1[0], numSamps*2*stdur, MPI_FLOAT, MASTER, COMMSIG, MPI_COMM_WORLD, &istatus1[myid-1]);
+    subband->fabricatedata(commFreqSig1, rng_inst[myid], sfluxdensity);
   }
+
+  // free allocated common signal memory
+  delete commFreqSig1;
+  delete commFreqSig2;
 }
