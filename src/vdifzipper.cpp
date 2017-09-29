@@ -35,7 +35,7 @@ using namespace std;
  * @configindex Configuration index
  * @durus Observation time in microseconds
  */
-void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid)
+void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid, int color)
 {
   int mjd, seconds;
   
@@ -113,10 +113,13 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     cout << " VDIF header initialized" << endl; 
   }
 
+  stringstream cc;
+  cc << color;
+
   try
   {
     // open multi-channel vdif file to write to
-    outputvdif.open((antname + ".vdif").c_str(), ios::binary);
+    outputvdif.open((antname + "-" + cc.str() + ".vdif").c_str(), ios::binary);
     if(verbose >= 2)
     {
       cout << " Opened " << antname << ".vdif for writing ..." << endl;
@@ -127,7 +130,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
       stringstream ss;  
       ss << ch;
       ostringstream filename;
-      filename << antname << "_" << ss.str() << ".vdif";
+      filename << antname << "_" << ss.str() << "-" << cc.str() << ".vdif";
       chfile[ch].open(filename.str().c_str(), ios::binary);
       if(verbose >= 2)
       {

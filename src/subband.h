@@ -33,7 +33,7 @@ class Subband{
     Subband();
     Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
           size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth,
-          std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose);
+          std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose, int groupIdx);
     ~Subband();
 
     // copy constructor
@@ -126,6 +126,7 @@ class Subband{
     int d_seconds;            // start seconds
     float d_freq;             // start frequency of the subband
     size_t d_verbose;         // verbose status
+    size_t d_groupIdx;        // only used for time-based parallelization
 
     size_t d_cptr;            // current pointer position
     size_t d_procptr;         // process pointer in d_arr in terms of number of samples
