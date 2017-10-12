@@ -43,22 +43,22 @@ class Subband{
     Subband const &operator=(Subband const &other);
 
     // access methods
-    inline size_t const getstartIdx() const { return d_startIdx; }
-    inline size_t const getblksize() const { return d_blksize; }
-    inline size_t const getlength() const { return d_length; }
-    inline size_t const getantIdx() const { return d_antIdx; }
-    inline size_t const getsbIdx() const { return d_sbIdx; }
-    inline size_t const getvpbytes() const { return d_vpbytes; }
-    inline size_t const getvpsamps() const { return d_vpsamps; }
-    inline double const getstarttime() const { return d_starttime; }
-    inline float const getbandwidth() const { return d_bandwidth; }
-    inline std::string const getantname() const { return d_antname; }
-    inline size_t const getcptr() const { return d_cptr; }
-    inline size_t const getprocptr() const { return d_procptr; }
-    inline std::string const getfilename() const { return d_filename; }
-    inline uint8_t* const getvdifbuf() const {return d_vdifbuf; }
-    inline size_t const getnearestsample() const {return d_nearestsample; }
-    inline double const getfracsamperror() const {return d_fracsamperror; } 
+    inline size_t getstartIdx() const { return d_startIdx; }
+    inline size_t getblksize() const { return d_blksize; }
+    inline size_t getlength() const { return d_length; }
+    inline size_t getantIdx() const { return d_antIdx; }
+    inline size_t getsbIdx() const { return d_sbIdx; }
+    inline size_t getvpbytes() const { return d_vpbytes; }
+    inline size_t getvpsamps() const { return d_vpsamps; }
+    inline double getstarttime() const { return d_starttime; }
+    inline float getbandwidth() const { return d_bandwidth; }
+    inline std::string getantname() const { return d_antname; }
+    inline size_t getcptr() const { return d_cptr; }
+    inline size_t getprocptr() const { return d_procptr; }
+    inline std::string getfilename() const { return d_filename; }
+    inline uint8_t* getvdifbuf() const {return d_vdifbuf; }
+    inline size_t getnearestsample() const {return d_nearestsample; }
+    inline double getfracsamperror() const {return d_fracsamperror; } 
 
     inline void setcptr(size_t cptr) {d_cptr = cptr; }
     inline void setprocptr(size_t procptr) { d_procptr = procptr; }
