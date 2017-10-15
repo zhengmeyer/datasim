@@ -363,7 +363,22 @@ void Subband::swap(Subband& n2)
   swap(d_cptr, n2.d_cptr);
   swap(d_procptr, n2.d_procptr);
   swap(d_filename, n2.d_filename);
-  d_vdiffile.swap(n2.d_vdiffile);
+  //d_vdiffile.swap(n2.d_vdiffile);
+
+  std::ofstream d_tempvdif;
+  d_tempvdif.copyfmt(d_vdiffile);      
+  d_tempvdif.clear(d_vdiffile.rdstate());                          
+  d_tempvdif.basic_ios<char>::rdbuf(d_vdiffile.rdbuf());  
+
+
+  d_vdiffile.copyfmt(n2.d_vdiffile);      
+  d_vdiffile.clear(n2.d_vdiffile.rdstate());                          
+  d_vdiffile.basic_ios<char>::rdbuf(n2.d_vdiffile.rdbuf());
+
+  n2.d_vdiffile.copyfmt(d_tempvdif);      
+  n2.d_vdiffile.clear(d_tempvdif.rdstate());                          
+  n2.d_vdiffile.basic_ios<char>::rdbuf(d_tempvdif.rdbuf());
+ 
   swap(d_sampletime, n2.d_sampletime);
   swap(d_vptime, n2.d_vptime);
   swap(d_nearestsample, n2.d_nearestsample);

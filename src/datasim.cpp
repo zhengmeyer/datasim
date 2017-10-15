@@ -360,16 +360,6 @@ int main(int argc, char* argv[])
       antsb.push_back(antsbcnt);
     }
 
-    // Only consider the case where number of cores is the same as number of subbands
-    if((sbcount+1) != numprocs)
-    {
-      cout << "Total number of cores is not the same as total number of subbands + 1\n"
-           << "Aborting ..."
-           << "Total number of subbands is " << sbcount << "\n"
-           << "Please adjust the number of cores." << endl;
-      MPI_Abort(MPI_COMM_WORLD, ERROR);
-    }
-
     // general information from model
     if(setupinfo.verbose >= 1)
     {
@@ -425,7 +415,10 @@ int main(int argc, char* argv[])
 
   // 'div' is the number of pieces the simulation time is divided into
   size_t div = 1;
-  int color = myid / (sbcount + 1);
+  // use color for later implementation using MPI Shared-memeroy
+  // Set it to zero for the moment
+  int color = 0; 
+  //int color = myid / (sbcount + 1);
   MPI_Comm local_comm;
   // If there are more subbands then number of cores, use time-baseed parallelization.
   // Otherwise, use a combination of subband- and time-based parallelization.
