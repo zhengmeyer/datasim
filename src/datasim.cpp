@@ -434,11 +434,13 @@ int main(int argc, char* argv[])
   {
     cout << "Total number of cores is less than number of subbands plus 1." << endl;
     div = numprocs;
+    //color = myid;
   }
   else
   {
     cout << "Use subband-based parallelization." << endl;
     div = numprocs / (sbcount + 1);
+    //color = myid / (sbcount + 1);
     sbbased = true;
   }
 
