@@ -427,13 +427,12 @@ int main(int argc, char* argv[])
   {
     cout << "Total number of cores is less than number of subbands plus 1." << endl;
     div = numprocs;
-    //color = myid;
   }
   else
   {
+    // at the moment more core than the number of subbands is not considered
+    // those cores will not be used
     cout << "Use subband-based parallelization." << endl;
-    div = numprocs / (sbcount + 1);
-    //color = myid / (sbcount + 1);
     sbbased = true;
   }
 
@@ -455,8 +454,9 @@ int main(int argc, char* argv[])
 
   // master generates common signal
   // each subband copies its data to the right place
-  // if use time-based parallelization
-  // master is local_rank 0 of each group
+  // if use time-based parallelization on multiple nodes
+  // master is local_rank 0 of each group (MPI Shared-memory)
+  // color (sub-group) is introduced, !!!!!!but not implemented yet
   
   size_t stdur = tdur/stime;
   
