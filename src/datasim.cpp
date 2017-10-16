@@ -302,9 +302,6 @@ int main(int argc, char* argv[])
   // use this vptime as time reference
   framespersec = config->getFramesPerSecond(configindex, 0);
   refvptime = 1.0 * 1e6 / framespersec;
- 
-  bool sbbased = false;
-  bool timebased = false;
 
   // print out information of the simulation
   // and retrieve information of the number of antenna and subbands
@@ -319,7 +316,56 @@ int main(int argc, char* argv[])
   int sbinfo[2] = {0, 0};
   // total subbands counter
   int sbcount = 0;
+
+  // If there are more cores than the number of subbands(+1)
+  // It might be possible to also use time-based parallelisation
+  // Use color to divide the processes into sub-communication groups, where
+  // each group generate dur/div seconds of signals for all subbands
+
+  // 'div' is the number of pieces the simulation time is divided into
+  size_t div = numprocs / (sbcount+1);
+  int color = 0;
+
+  if(div > 1)
+  {
+    cout << "Use time-based parallelization." << endl;
+    color = myid / (sbcount + 1);
+    durus = durus/div;
+    size_t remaining = (size_t)durus % div;
+    if(remaining != 0)
+      cout << "Cannot divide " << durus << " ms into " << div << " pieces.\n"
+           << "Omitting the last " << remaining << " ms." << endl;
+  }
+
   if(myid == MASTER)
+  {
+    // For the current implementation
+    // numprocs has to be greater than sbcount+1
+    // This will be changed later
+    if(numprocs < sbcount+1)
+    {
+      cout << "ERROR!!!\n"
+           << "Number of processes should has at least the value of " << sbcount+1 <<" (subbands count plus 1)" << endl;
+      MPI_Abort(MPI_COMM_WORLD, ERROR);
+    }
+
+    // general information from model
+    if(setupinfo.verbose >= 1)
+    {
+      cout << "Total number of subbands is  " << sbcount << endl;
+      cout << "Number of scans is " << model->getNumScans() << endl;
+      cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
+      cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
+    }
+  }
+
+  MPI_Comm local_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, color, myid, &local_comm);
+  int local_rank, local_size;
+  MPI_Comm_rank(local_comm, &local_rank);
+  MPI_Comm_size(local_comm, &local_size);
+
+  if(local_rank != MASTER)
   {
     start = MPI_Wtime();
     // array with num-antenna number of elements
@@ -360,15 +406,6 @@ int main(int argc, char* argv[])
       antsb.push_back(antsbcnt);
     }
 
-    // general information from model
-    if(setupinfo.verbose >= 1)
-    {
-      cout << "Total number of subbands is  " << sbcount << endl;
-      cout << "Number of scans is " << model->getNumScans() << endl;
-      cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-      cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-    }
-
     subbandsinfo = new int [(sbcount+1) * 2];
 
     int numprocessed = 1;
@@ -385,17 +422,12 @@ int main(int argc, char* argv[])
       }
       numprocessed += numrecordedbands;
     }
-    for(size_t idx = 0; idx < (size_t) (sbcount+1); idx++)
-    {
-      cout << subbandsinfo[idx*2] << " " << subbandsinfo[idx*2+1] << endl;
-    }
   }
-  // scatter sbinfo to each process
-  // disbribute (antidx, sbidx) information to each process
-
-  MPI_Scatter(&subbandsinfo[0], 2, MPI_INT, &sbinfo[0], 2, MPI_INT, MASTER, MPI_COMM_WORLD);
   
-//==================================================
+  // Scatter sbinfo to each process
+  // Disbribute (antidx, sbidx) information to each process
+  MPI_Scatter(&subbandsinfo[0], 2, MPI_INT, &sbinfo[0], 2, MPI_INT, MASTER, local_comm);
+  
   // calculate specRes, number of samples per time block, step time
   if(getSpecRes(config, configindex, specRes, setupinfo.verbose) != EXIT_SUCCESS)
   {
@@ -413,45 +445,6 @@ int main(int argc, char* argv[])
   }
   minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
 
-  // 'div' is the number of pieces the simulation time is divided into
-  size_t div = 1;
-  // use color for later implementation using MPI Shared-memeroy
-  // Set it to zero for the moment
-  int color = 0; 
-  //int color = myid / (sbcount + 1);
-  MPI_Comm local_comm;
-  // If there are more subbands then number of cores, use time-baseed parallelization.
-  // Otherwise, use a combination of subband- and time-based parallelization.
-
-  if((sbcount+1) > numprocs)
-  {
-    cout << "Total number of cores is less than number of subbands plus 1." << endl;
-    div = numprocs;
-  }
-  else
-  {
-    // at the moment more core than the number of subbands is not considered
-    // those cores will not be used
-    cout << "Use subband-based parallelization." << endl;
-    sbbased = true;
-  }
-
-  if(div != 1)
-  {
-    cout << "Use time-based parallelization." << endl;
-    timebased = true;
-    durus = durus/div;
-    size_t remaining = (size_t)durus % div;
-    if(remaining != 0)
-      cout << "Cannot divide " << durus << " ms into " << div << " pieces.\n"
-           << "Omitting the last " << remaining << " ms." << endl;
-  }
-
-  MPI_Comm_split(MPI_COMM_WORLD, color, myid, &local_comm);
-  int local_rank, local_size;
-  MPI_Comm_rank(local_comm, &local_rank);
-  MPI_Comm_size(local_comm, &local_size);
-
   // master generates common signal
   // each subband copies its data to the right place
   // if use time-based parallelization on multiple nodes
@@ -460,6 +453,7 @@ int main(int argc, char* argv[])
   
   size_t stdur = tdur/stime;
   
+  // Subband-based parallelization starts here
   Subband* subband;
   int antidx = sbinfo[0];
   int sbidx = sbinfo[1];
@@ -488,8 +482,6 @@ int main(int argc, char* argv[])
 
   if(local_rank != MASTER)
   {
-    // every antenna initialize its own subbands for antenna-based parallelization
-
     mjd = config->getStartMJD();
     seconds = config->getStartSeconds();
     if(setupinfo.verbose >= 1)
@@ -561,8 +553,8 @@ int main(int argc, char* argv[])
     if(setupinfo.verbose == 1)
       cout << "Process " << myid
            << ", local rank " << local_rank << " of group " << color << endl;
-  }
 
+  }
   /*
    * generate common frequency domain signal
    * and send it to each subband of each antenna
