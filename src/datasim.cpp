@@ -316,63 +316,17 @@ int main(int argc, char* argv[])
   int sbinfo[2] = {0, 0};
   // total subbands counter
   int sbcount = 0;
-
-  // If there are more cores than the number of subbands(+1)
-  // It might be possible to also use time-based parallelisation
-  // Use color to divide the processes into sub-communication groups, where
-  // each group generate dur/div seconds of signals for all subbands
-
-  // 'div' is the number of pieces the simulation time is divided into
-  size_t div = numprocs / (sbcount+1);
+  int div = 0; 
   int color = 0;
 
-  if(div > 1)
-  {
-    cout << "Use time-based parallelization." << endl;
-    color = myid / (sbcount + 1);
-    durus = durus/div;
-    size_t remaining = (size_t)durus % div;
-    if(remaining != 0)
-      cout << "Cannot divide " << durus << " ms into " << div << " pieces.\n"
-           << "Omitting the last " << remaining << " ms." << endl;
-  }
-
-  if(myid == MASTER)
-  {
-    // For the current implementation
-    // numprocs has to be greater than sbcount+1
-    // This will be changed later
-    if(numprocs < sbcount+1)
-    {
-      cout << "ERROR!!!\n"
-           << "Number of processes should has at least the value of " << sbcount+1 <<" (subbands count plus 1)" << endl;
-      MPI_Abort(MPI_COMM_WORLD, ERROR);
-    }
-
-    // general information from model
-    if(setupinfo.verbose >= 1)
-    {
-      cout << "Total number of subbands is  " << sbcount << endl;
-      cout << "Number of scans is " << model->getNumScans() << endl;
-      cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-      cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
-    }
-  }
-
-  MPI_Comm local_comm;
-  MPI_Comm_split(MPI_COMM_WORLD, color, myid, &local_comm);
-  int local_rank, local_size;
-  MPI_Comm_rank(local_comm, &local_rank);
-  MPI_Comm_size(local_comm, &local_size);
-
-  if(local_rank != MASTER)
+ if(myid == MASTER)
   {
     start = MPI_Wtime();
     // array with num-antenna number of elements
     // the value of which is the number of subbands the corresponding antenna has
     vector<int> antsb;
     if(!is_integer(refvptime))
-    {
+    { 
       cout << "VDIF packet time in microsecond is not an integer!! Something is wrong here ..." << endl;
       return EXIT_FAILURE;
     }
@@ -380,7 +334,7 @@ int main(int argc, char* argv[])
     cout << "Generate " << dur << " seconds data for " << numdatastreams << " stations ..." << "\n"
       << "source flux density is " << setupinfo.sfluxdensity << ".\n"
       << "random number generator seed is " << setupinfo.seed << endl;
-
+    
     for(int i = 0; i < numdatastreams; i++)
     {
       framespersec = (size_t)config->getFramesPerSecond(configindex, i);
@@ -391,23 +345,23 @@ int main(int argc, char* argv[])
            << " Number of recorded band(s) is " << numrecordedbands << "\n"
            << " Antenna SEFD is " << setupinfo.antSEFDs[i] << "\n"
            << " Number of frames per second is " << framespersec << endl;
-      
+
       // antenna subbands counter
-      int antsbcnt = 0; 
+      int antsbcnt = 0;  
       for(int j = 0; j < numrecordedbands; j++)
       {
         sbcount++;
-        antsbcnt++;
-        freqindex = config->getDRecordedFreqIndex(configindex, i, j); 
+        antsbcnt++; 
+        freqindex = config->getDRecordedFreqIndex(configindex, i, j);
         cout << "Subband " << j << ":" << "\n"
-             << "  Frequency " << config->getFreqTableFreq(freqindex) << "\n"
-             << "  Bandwidth " << config->getFreqTableBandwidth(freqindex) << endl; 
+             << "  Frequency " << config->getFreqTableFreq(freqindex) << "\n" 
+             << "  Bandwidth " << config->getFreqTableBandwidth(freqindex) << endl;
       }
       antsb.push_back(antsbcnt);
     }
 
     subbandsinfo = new int [(sbcount+1) * 2];
-
+    
     int numprocessed = 1;
     subbandsinfo[0] = 0;
     subbandsinfo[1] = 0;
@@ -422,7 +376,50 @@ int main(int argc, char* argv[])
       }
       numprocessed += numrecordedbands;
     }
+    // For the current implementation
+    // numprocs has to be greater than sbcount+1
+    // This will be changed later
+    if(numprocs < sbcount+1)
+    {
+      cout << "ERROR!!!\n"
+           << "Number of processes should has at least the value of " << sbcount+1 <<" (subbands count plus 1)" << endl;
+      MPI_Abort(MPI_COMM_WORLD, ERROR);
+    }
+
+    // If there are more cores than the number of subbands(+1)
+    // It might be possible to also use time-based parallelisation
+    // Use color to divide the processes into sub-communication groups, where
+    // each group generate dur/div seconds of signals for all subbands
+ 
+    // 'div' is the number of pieces the simulation time is divided into
+    div = numprocs / (sbcount+1);
+  
+    if(div > 1)
+    {
+      cout << "Use time-based parallelization." << endl;
+      cout << "Divide simulation into " << div << " parts" << endl;
+    }
+  
+    // general information from model
+    if(setupinfo.verbose >= 1)
+    {
+      cout << "Total number of subbands is  " << sbcount << endl;
+      cout << "Number of scans is " << model->getNumScans() << endl;
+      cout << "Scan start second is " << model->getScanStartSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
+      cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
+    }
+    MPI_Bcast(&div, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
   }
+
+  color = myid / (sbcount + 1);
+  durus = durus/div;
+
+  MPI_Comm local_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, color, myid, &local_comm);
+  int local_rank, local_size;
+  MPI_Comm_rank(local_comm, &local_rank);
+  MPI_Comm_size(local_comm, &local_size);
+
   
   // Scatter sbinfo to each process
   // Disbribute (antidx, sbidx) information to each process
