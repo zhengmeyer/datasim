@@ -13,7 +13,7 @@ LDFLAGS =
 LIBS = -lmpifxcorr -lgsl -lgslcblas
 
 # list of sources:
-SOURCE = vdifzipper.cpp subband.cpp util.cpp datasim.cpp
+SOURCE = vdifzipper.cpp catvdif.cpp subband.cpp util.cpp datasim.cpp
 OBJECTS = $(SOURCE:.cpp=.o)
 
 # execuatble

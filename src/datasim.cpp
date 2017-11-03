@@ -33,6 +33,7 @@
 #include "vdifio.h"
 #include "model.h"
 #include "vdifzipper.h"
+#include "catvdif.h"
 
 using namespace std;
 
@@ -367,7 +368,7 @@ int main(int argc, char* argv[])
     int numcores_minimum = sbcount + 1;
     if(numprocs % numcores_minimum != 0)
     {
-      cout << "ERROR!!!\n"
+      cout << "ERROR!!!!!!!!\n"
            << "Number of processes should has at least the value of " << numcores_minimum <<" (subbands count plus 1),\n"
            << "and should be a multiple of " << numcores_minimum << endl;
       MPI_Abort(MPI_COMM_WORLD, ERROR);
@@ -400,9 +401,16 @@ int main(int argc, char* argv[])
   MPI_Bcast(&div, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
   MPI_Bcast(&sbcount, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
 
-  color = myid / (sbcount + 1);
+  if((size_t)durus%div != 0)
+  {
+    cout << "WARNING!!!!!!!\n"
+         << "Cannot divide durus by div!\n"
+         << "Will only generate " << durus/div * div << " microseconds data ..." << endl;
+  }
+
   durus = durus/div;
 
+  color = myid / (sbcount + 1);
   // Create communication groups for each time-based partition
   MPI_Comm local_comm;
   MPI_Comm_split(MPI_COMM_WORLD, color, myid, &local_comm);
@@ -565,6 +573,7 @@ int main(int argc, char* argv[])
    * generate common frequency domain signal
    * and send it to each subband of each antenna
    */
+  
   if(local_rank == MASTER)
   {
     cout << "Master process of group " << color << " starts generating data ...\n"
@@ -673,15 +682,6 @@ int main(int argc, char* argv[])
     delete subband;
   }
 
-  if(myid== MASTER)
-  {
-    end = MPI_Wtime();
-    elapse = (end - start)/60.0; // convert time from seconds to minutes
-  
-    cout << "All data has been generated successfully, bye!" << endl;
-    cout << "Total duration is " << elapse << " minutes." << endl;
-  }
-
   if(local_rank < numdatastreams)
   {
     // combine VDIF files
@@ -692,7 +692,18 @@ int main(int argc, char* argv[])
   MPI_Type_free(&structtype);
   MPI_Comm_free(&local_comm);
 
+  if(myid < numdatastreams)
+    catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
 
+  if(myid== MASTER)
+  {
+    end = MPI_Wtime();
+    elapse = (end - start)/60.0; // convert time from seconds to minutes
+  
+    cout << "All data has been generated successfully, bye!" << endl;
+    cout << "Total duration is " << elapse << " minutes." << endl;
+  }
+  
   // free random number generator
   gsl_rng_free(rng_inst[myid]);
   MPI_Finalize();

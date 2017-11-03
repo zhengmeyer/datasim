@@ -122,7 +122,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     outputvdif.open((antname + "-" + cc.str() + ".vdif").c_str(), ios::binary);
     if(verbose >= 2)
     {
-      cout << " Opened " << antname << ".vdif for writing ..." << endl;
+      cout << " Opened " << antname+ "-" + cc.str() << ".vdif for writing ..." << endl;
     }
     // open vdif file of each channel 
     for(size_t ch = 0; ch < numrecordedbands; ch++)

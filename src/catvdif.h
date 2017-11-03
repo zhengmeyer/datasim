@@ -27,7 +27,7 @@
 #define ISCOMPLEX 0
 #define BITSPERBYTE 8
 
-void catvdif(size_t div, int myid);
+void catvdif(Configuration* config, int configindex, float durus, size_t verbose, int myid, size_t div);
 
 #endif /* __CATVDIF_H__ */
 
