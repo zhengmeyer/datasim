@@ -41,7 +41,7 @@ using namespace std;
 Subband::Subband()
   : d_startIdx(0), d_blksize(0), d_length(0), d_antIdx(0), d_antSEFD(0), d_sbIdx(0),
     d_vpbytes(0), d_vpsamps(0), d_bandwidth(0), d_antname(0),
-    d_mjd(0), d_seconds(0), d_freq(0), d_verbose(0)
+    d_mjd(0), d_seconds(0), d_freq(0), d_verbose(0), d_groupIdx(0)
 {
   int status;
   d_starttime = 0;
@@ -139,10 +139,10 @@ Subband::Subband()
 
 Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
              size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth, string const &antname,
-             int const &mjd, int const &seconds, float const &freq, size_t const &verbose)
+             int const &mjd, int const &seconds, float const &freq, size_t const &verbose, int groupIdx)
   : d_startIdx(startIdx), d_blksize(blksize), d_length(length), d_antIdx(antIdx), d_antSEFD(antSEFD), d_sbIdx(sbIdx),
     d_vpbytes(vpbytes), d_vpsamps(vpsamps), d_bandwidth(bandwidth), d_antname(antname),
-    d_mjd(mjd), d_seconds(seconds), d_freq(freq), d_verbose(verbose)
+    d_mjd(mjd), d_seconds(seconds), d_freq(freq), d_verbose(verbose), d_groupIdx(groupIdx)
 {
   int status;
   d_starttime = delaycoeffs[1];
@@ -179,9 +179,11 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
   if(d_verbose >= 2) cout << "Process pointer start at " << d_procptr << endl;
 
   // vdif file name to write data to
-  stringstream ss;
+  stringstream ss, cc;
   ss << d_sbIdx;
-  d_filename = d_antname + "_" + ss.str() + ".vdif"; 
+  cc << d_groupIdx;
+  d_filename = d_antname + "_" + ss.str() + "-" + cc.str() + ".vdif"; 
+
   // open the output stream
   d_vdiffile.open(d_filename.c_str()); 
   if(d_verbose >= 1) cout << "Open VDIF output file stream " << d_filename << endl;
@@ -300,6 +302,7 @@ Subband::Subband(Subband const &other)
   d_cptr = other.d_cptr;
   d_procptr = other.d_procptr;
   d_filename = other.d_filename;
+  d_groupIdx = other.d_groupIdx;
 
   d_vdiffile.copyfmt(other.d_vdiffile);      
   d_vdiffile.clear(other.d_vdiffile.rdstate());                          

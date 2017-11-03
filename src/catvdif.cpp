@@ -26,20 +26,19 @@
 #include "architecture.h"
 #include "configuration.h"
 #include "vdifio.h"
-#include "vdifzipper.h"
+#include "catvdif.h"
 #include <mpi.h>
 
 using namespace std;
-/**
- * @config Configuration file
- * @configindex Configuration index
- * @durus Observation time in microseconds
- */
-void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid, int color)
+
+
+// Read in vdif header produced after vdifzipper
+
+void catvdif(Configuration* config, int configindex, float durus, size_t verbose, int myid, size_t div)
 {
   int mjd, seconds;
   
-  cout << "Combine VDIF files of each channel into a single-thread multi-channel VDIF file ..." << endl;
+  cout << "Combine VDIF files of each time-segment into a single-thread multi-channel VDIF file ..." << endl;
  
   mjd = config->getStartMJD();
   seconds = config->getStartSeconds();
@@ -48,17 +47,12 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     cout << "mjd is " << mjd << ", seconds is " << seconds << endl;
   }
 
-  // each antenna combines its subbands into one VDIF file
+  // each antenna combines its time-segment into one VDIF file
 
   size_t framebytes;                    // data frame size of the output VDIF file
   size_t numrecordedbands;              // number of channels
-  size_t chvpbytes;                     // data frame size of a single channel
-  size_t numsampsperframe;              // number of samples per frame of a single channel VDIF file
   float bw;                             // bandwidth
   size_t framespersec, totalnumframes;
-  size_t ishift, oshift;
-  uint8_t *optr, *iptr, *soptr, *siptr;
-  uint8_t bits, imask, omask;
   string antname;
   ofstream outputvdif;
 
@@ -75,10 +69,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   //antname.back() = tolower(antname.back());
   antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
 
-  chvpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
-  numsampsperframe = (chvpbytes - VDIF_HEADER_BYTES) * BITSPERBYTE / BITS;
-
-  ifstream chfile[numrecordedbands];
+  ifstream tsegfile[div];
 
   // retrieve bandwidth information and number of frames per second of each antenna
   bw = config->getDRecordedBandwidth(configindex, myid, 0);
@@ -89,16 +80,15 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   {
     cout << " framebyte is " << framebytes << "bytes, number of channels is " << numrecordedbands<< "\n"
          << " bandwitdh is " << bw << "MHz, framespersec is " << framespersec<< "\n"
-         << " total number of frames is " << totalnumframes << "\n"
-         << " number of samples per frame is " << numsampsperframe << endl;
+         << " total number of frames is " << totalnumframes << endl;
   }
   // allocate memory for vdif packet buffer and input file streams
   uint8_t* outputvdifbuf;
   uint8_t* inputvdifbuf;
+  inputvdifbuf = vectorAlloc_u8(framebytes);
   outputvdifbuf = vectorAlloc_u8(framebytes);
+  fill_n(inputvdifbuf, framebytes, 0);
   fill_n(outputvdifbuf, framebytes, 0);
-  inputvdifbuf = vectorAlloc_u8(chvpbytes);
-  fill_n(inputvdifbuf, chvpbytes, 0);
   if(verbose >= 2)
   {
     cout << " Allocated memory for vdif packet buffer for antenna " << myid << endl;  
@@ -113,84 +103,53 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     cout << " VDIF header initialized" << endl; 
   }
 
-  stringstream cc;
-  cc << color;
-
   try
   {
     // open multi-channel vdif file to write to
-    outputvdif.open((antname + "-" + cc.str() + ".vdif").c_str(), ios::binary);
+    outputvdif.open((antname + ".vdif").c_str(), ios::binary);
     if(verbose >= 2)
     {
-      cout << " Opened " << antname+ "-" + cc.str() << ".vdif for writing ..." << endl;
+      cout << " Opened " << antname << ".vdif for writing ..." << endl;
     }
-    // open vdif file of each channel 
-    for(size_t ch = 0; ch < numrecordedbands; ch++)
+    // open vdif file of each time segment
+    for(size_t  tseg = 0; tseg < div; tseg++)
     {
       stringstream ss;  
-      ss << ch;
+      ss << tseg;
       ostringstream filename;
-      filename << antname << "_" << ss.str() << "-" << cc.str() << ".vdif";
-      chfile[ch].open(filename.str().c_str(), ios::binary);
+      filename << antname << "-" << ss.str() << ".vdif";
+      tsegfile[tseg].open(filename.str().c_str(), ios::binary);
       if(verbose >= 2)
       {
         cout << " Opened input file " << filename.str() << endl;         
       }
-    }
 
-    for(size_t idx = 0; idx < totalnumframes; idx++)
-    {
-      // loop through all the channels
-      for(size_t ch = 0; ch < numrecordedbands; ch++)
-      {
-        soptr = &outputvdifbuf[VDIF_HEADER_BYTES];
-        // reset the value of the input vdif buffer
-        fill_n(inputvdifbuf, chvpbytes, 0);
+	    for(size_t idx = 0; idx < totalnumframes; idx++)
+	    {
+	      // reset the value of the input vdif buffer
+	      fill_n(inputvdifbuf, framebytes, 0);
 
-        chfile[ch].read((char *)inputvdifbuf, chvpbytes * sizeof(uint8_t));
+	      tsegfile[tseg].read((char *)inputvdifbuf, framebytes * sizeof(uint8_t));
+	      for(size_t byte = VDIF_HEADER_BYTES; byte < framebytes; byte++)
+	      	outputvdifbuf[byte] = inputvdifbuf[byte];
 
-        // set start input pointer at the beginning of data within the current frame
-        siptr = &inputvdifbuf[VDIF_HEADER_BYTES];
+	      // write to output vdif file
+	      outputvdif.write((char *)outputvdifbuf, framebytes * sizeof(uint8_t));
 
-        // loop through number of samples within the current frame
-        for(size_t samp = 0; samp < numsampsperframe; samp++)
-        {
-          // set the input pointer at the proper byte for the current sample
-          iptr = siptr + (samp * BITS) / BITSPERBYTE;
-          // shift to the proper bits and retrieve bits value
-          ishift = (samp * BITS) % BITSPERBYTE;
-          imask = 03;
-          imask <<= ishift;
-          bits = (*iptr) & imask;
-          bits >>= ishift;
-
-          // store the bits value at the proper location in the output data frame
-          // samp of input data frame is equivalent to the complete sample index of output data frame
-          optr = soptr + (samp * BITS * numrecordedbands) / BITSPERBYTE + (ch * BITS) / BITSPERBYTE;
-          oshift = ((samp * BITS * numrecordedbands) % BITSPERBYTE + (ch * BITS) % BITSPERBYTE) % BITSPERBYTE;
-          omask = 03;
-          omask <<= oshift;
-          bits <<= oshift;
-          (*optr) &= ~omask;
-          (*optr) |= bits;
-        }
-      }
-      // write to output vdif file
-      outputvdif.write((char *)outputvdifbuf, framebytes * sizeof(uint8_t));
-
-      //update VDIF Header for the next packet
-      if(idx != totalnumframes - 1)
-        nextVDIFHeader((vdif_header *)outputvdifbuf, (int) framespersec);     
-    }
-    // close input vdif files
-    for(size_t ch = 0; ch < numrecordedbands; ch++)
-    {
-      chfile[ch].close();
-      if(verbose >= 1)
-      { 
-        cout << " Closed input file for channel " << ch << endl;
-      }
-    }
+	      //update VDIF Header for the next packet
+	      if(idx != totalnumframes - 1)
+	        nextVDIFHeader((vdif_header *)outputvdifbuf, (int) framespersec);     
+	    }
+	    // close input vdif files
+	    for(size_t ch = 0; ch < numrecordedbands; ch++)
+	    {
+	      tsegfile[tseg].close();
+	      if(verbose >= 1)
+	      { 
+	        cout << " Closed input file for time-segment " << tseg << endl;
+	      }
+	    }
+	  }
     // close multi-channel vdif file after writing
     outputvdif.close();
     if(verbose >= 1)
@@ -201,38 +160,10 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     cerr << "Exception opening/closinging input or output vdif file" << endl;                                              
   }
   // free memory of input and output vdif buffer
-  vectorFree(outputvdifbuf);
   vectorFree(inputvdifbuf);
+  vectorFree(outputvdifbuf);
   if(verbose >= 2)
   {
     cout << "Freed memory allocated for input and output vdif buffers" << endl;
   }
 }
-
-/*
-int main(int argc, char* argv[])
-{
-  MPI_Init(&argc, &argv);
-  int numprocs, myid;
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
-  Configuration* config;
-  int configindex = 0;
-  float dur, durus;
-  size_t verbose = 0;
-  int numdatastreams;
-
-  config = new Configuration(argv[1], configindex);
-  // retrieve observation time in seconds
-  // and convert it to microseconds
-  dur = config->getExecuteSeconds();
-  durus = dur * 1e6;
-  numdatastreams = config->getNumDataStreams();
-  if(myid < numdatastreams)
-    vdifzipper(config, configindex, durus, verbose, myid);
-
-  MPI_Finalize();
-  return 0;
-}
-*/
