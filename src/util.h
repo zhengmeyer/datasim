@@ -103,6 +103,11 @@ int processAndPacketize(size_t framespersec, Subband* subband, Model* model, siz
 void prepareSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity,
   int numSamps, int myid, int numprocs, Subband* subband);
 
+
+void genSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, float* commFreqSig,
+  int numSamps, int lock, int myid, int numprocs, Subband* subband);
+void copySignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity, float* commFreqSig,
+  int numSamps, int lock, int myid, int numprocs, Subband* subband);
 #endif /* __UTIL_H__ */
 
 /*
