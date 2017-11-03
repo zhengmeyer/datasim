@@ -17,7 +17,7 @@ SOURCE = vdifzipper.cpp subband.cpp util.cpp datasim.cpp
 OBJECTS = $(SOURCE:.cpp=.o)
 
 # execuatble
-EXECUTABLE = datasim
+EXECUTABLE = datasim_mpi
 
 # DiFX library specific flags
 # using pkg-config

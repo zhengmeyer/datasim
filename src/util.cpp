@@ -188,35 +188,3 @@ int processAndPacketize(size_t framespersec, Subband* subband, Model* model, siz
 
   return (EXIT_SUCCESS);
 }
-/*
-void prepareSignal(unsigned long stdur, int verbose, gsl_rng **rng_inst, int sfluxdensity,
-  int numSamps, int local_rank, int numprocs, Subband* subband)
-{
-  float* commFreqSig1;                  // 0.5 seconds common frequency domain signal
-  float* commFreqSig2;
-  size_t workers = size_t(numprocs - 1);
-  MPI_Request request1[workers], request2[workers];
-  MPI_Status istatus1[workers], istatus2[workers];
-
-  // allocate memory for the common frequency domain signal
-  commFreqSig1 = new float [numSamps*2];
-  commFreqSig2 = new float [numSamps*2];
-
-  if(local_rank == MASTER)
-  {
-    gencplx(commFreqSig1, numSamps*2*stdur, STDEV, rng_inst[myid], verbose);
-    for(size_t idx=0; idx < workers; idx++)
-      MPI_Isend(&commFreqSig1[0], numSamps*2*stdur, MPI_FLOAT, idx, COMMSIG, local_comm, &request1[idx]);
-
-  }
-  else
-  {
-    MPI_Recv(&commFreqSig1[0], numSamps*2*stdur, MPI_FLOAT, MASTER, COMMSIG, local_comm, &istatus1[myid-1]);
-    subband->fabricatedata(commFreqSig1, rng_inst[myid], sfluxdensity);
-  }
-
-  // free allocated common signal memory
-  delete commFreqSig1;
-  delete commFreqSig2;
-}
-*/
