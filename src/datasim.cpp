@@ -65,10 +65,10 @@ static void usage(int argc, char **argv)
   cout << "     --test        run in test mode, generate 1 second data for each station,\n"
        << "                   no matter what's given in the configuration file." << endl;
   cout << endl;
-  /*
   cout << "     -l" << endl;
   cout << "     --line        line signal in the form of frequency,amplitude." << endl;
   cout << endl;
+  /*
   cout << "     -i" << endl;
   cout << "     --injection   injection signal in the form of frequency,amplitude." << endl;
   cout << endl;
@@ -85,12 +85,12 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
     {"seed",      required_argument,  0,  'd'},
     {"verbose",   no_argument,        0,  'v'},
     {"test",      no_argument,        0,  't'},
-    //{"line",      required_argument,  0,  'l'},
+    {"line",      required_argument,  0,  'l'},
     //{"injection", required_argument,  0,  'i'},
     {0,           0,                  0,   0 }
   };
   int long_index = 0;
-  while((tmp=getopt_long(argc,argv,"hf:s:d:vt",
+  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:",
               long_options, &long_index)) != -1)
   {
     switch(tmp)
@@ -143,6 +143,24 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
       case 't':
       setupinfo.test = 1;
       break;
+      case 'l':
+        if(*optarg == '-' || *optarg == ' ')
+        {
+          cerr << "Option -l requires argument in the form of frequency,amplitude." << endl;
+          exit (EXIT_FAILURE);
+        }
+        else
+        {
+          istringstream ss(optarg);
+          string token;
+          int idx;
+          for(idx = 0; idx < LINESIGLEN; idx++)
+          {
+            getline(ss, token, ',');
+            setupinfo.linesignal[idx] = atof(token.c_str());
+          }
+        }
+        break;
 
       default:
         usage(argc, argv);
@@ -192,9 +210,10 @@ int main(int argc, char* argv[])
     setupinfo.sfluxdensity = 10;     // source flux density in Jansky
     for(size_t idx = 0; idx < MAXANT; idx++)
       setupinfo.antSEFDs[idx] = 200;
-    /*
-    for(size_t i = 0; i < setupinfo.linesignal.size(); i++)
+
+    for(size_t i = 0; i < LINESIGLEN; i++)
       setupinfo.linesignal[i] = 0;
+    /*
     for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
       setupinfo.injectionsignal[i] = 0;
     */
@@ -205,10 +224,9 @@ int main(int argc, char* argv[])
 
   // MPI_Type_create_struct
   // Create struct for setupinfo
-  const int nitems = 6;
-  int block[6] = {1, 1, 1, 1, MAXANT, MAXLEN};
-  MPI_Datatype type[6] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR};
-  MPI_Aint disp[6];
+  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN};
+  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR, MPI_FLOAT};
+  MPI_Aint disp[NITEMS];
   MPI_Datatype structtype;
 
   disp[0] = offsetof(setup, verbose);
@@ -217,8 +235,9 @@ int main(int argc, char* argv[])
   disp[3] = offsetof(setup, sfluxdensity);
   disp[4] = offsetof(setup, antSEFDs);
   disp[5] = offsetof(setup, inputfilename);
+  disp[6] = offsetof(setup, linesignal);
 
-  MPI_Type_create_struct(nitems, block, disp, type, &structtype);
+  MPI_Type_create_struct(NITEMS, block, disp, type, &structtype);
   MPI_Type_commit(&structtype);
 
   // broadcast setupinfo
@@ -235,7 +254,7 @@ int main(int argc, char* argv[])
   float specRes, minStartFreq;
   int numdatastreams, numrecordedbands, freqindex;
   int numSamps;                         // number of samples to be generated per time block for the common signal
-  int stime;                            // step time in microsecond == time block
+  size_t stime;                            // step time in microsecond == time block
   int configindex = 0;
 
   double timer = 0.0;
@@ -414,7 +433,7 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   };
   numSamps = getNumSamps(config, configindex, specRes, setupinfo.verbose);
-  stime = static_cast<int>(1 / specRes); // step time in microsecond
+  stime = static_cast<size_t>(1 / specRes); // step time in microsecond
   if(setupinfo.verbose >= 1 && myid == MASTER)
   {
     cout << "SpecRes is " << specRes << " MHz" << endl;
@@ -423,6 +442,13 @@ int main(int argc, char* argv[])
     cout << "tdur is " << tdur << endl;
   }
   minStartFreq = getMinStartFreq(config, configindex, setupinfo.verbose);
+
+  // check whether linesignal frequency is out of range
+  if(myid == MASTER && setupinfo.linesignal[0] >= numSamps*specRes)
+  {
+    cout << "ERROR: Line signal frequency value out of range ..." << endl;
+    return EXIT_FAILURE;
+  };
 
   // master generates common signal
   // each subband copies its data to the right place
@@ -552,7 +578,7 @@ int main(int argc, char* argv[])
   MPI_Status status;
 
   // allocate memory for the common frequency domain signal
-  int sampsize = numSamps*2*stdur;
+  int sampsize = numSamps*2*stdur;          // *2 due to complex number
   commFreqSig = new float [sampsize];
   commSlice = new float [numSamps*2];
 
@@ -567,6 +593,9 @@ int main(int argc, char* argv[])
 
   MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
 
+  // calculate linesignal position if linesignal value is given
+  size_t linesigidx = setupinfo.linesignal[0] / specRes * 2;
+
   do
   {
     if(local_rank == MASTER)
@@ -579,6 +608,14 @@ int main(int argc, char* argv[])
         {
           size_t idx = t*numSamps*2+samp;
           commSlice[samp] = commFreqSig[idx];
+        }
+
+        // add line signal amplitute to common signal
+        // the frequency is covered by multiple sample in the time block (stime)
+        for(size_t s = 0 ; s < stime; s++)
+        {
+          commSlice[linesigidx + 2*s] += sqrt(setupinfo.linesignal[1]);
+          commSlice[linesigidx + 2*s+1] += sqrt(setupinfo.linesignal[1]);
         }
 
         subband->fabricatedata(commSlice, rng_inst[myid], setupinfo.sfluxdensity);

@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -34,11 +34,10 @@
 #define SEED 48573
 #define MAXANT 20
 #define MAXLEN 50
+#define LINESIGLEN 2
+#define NITEMS 7
 
 #define MASTER 0
-#define COMMSIG 100
-#define LOCK 200
-
 
 typedef struct setup {
   int verbose;
@@ -47,7 +46,7 @@ typedef struct setup {
   float sfluxdensity;                       // source flux density in Jansky
   int antSEFDs[MAXANT] ;                    // antenna SEFD
   char inputfilename[MAXLEN];               // .input file name
-  //vector<float> linesignal[2];              // line signal (sky)
+  float linesignal[LINESIGLEN];                      // line signal (sky)
   //vector<vector<float>> injectionsignal;    // injection signal (station)
 } setup;
 
