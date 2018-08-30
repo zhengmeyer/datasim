@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -37,9 +37,10 @@ using namespace std;
 void catvdif(Configuration* config, int configindex, float durus, size_t verbose, int myid, size_t div)
 {
   int mjd, seconds;
-  
-  cout << "Combine VDIF files of each time-segment into a single-thread multi-channel VDIF file ..." << endl;
- 
+
+  if(verbose >= 1)
+    cout << "Combine VDIF files of each time-segment into a single-thread multi-channel VDIF file ..." << endl;
+
   mjd = config->getStartMJD();
   seconds = config->getStartSeconds();
   if(verbose >= 1)
@@ -91,7 +92,7 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
   fill_n(outputvdifbuf, framebytes, 0);
   if(verbose >= 2)
   {
-    cout << " Allocated memory for vdif packet buffer for antenna " << myid << endl;  
+    cout << " Allocated memory for vdif packet buffer for antenna " << myid << endl;
   }
 
   // initialize VDIF header of the output buffer
@@ -100,7 +101,7 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
   setVDIFFrameMJDSec((vdif_header *)outputvdifbuf, mjd*86400 + seconds);
   if(verbose >= 2)
   {
-    cout << " VDIF header initialized" << endl; 
+    cout << " VDIF header initialized" << endl;
   }
 
   try
@@ -114,14 +115,14 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
     // open vdif file of each time segment
     for(size_t  tseg = 0; tseg < div; tseg++)
     {
-      stringstream ss;  
+      stringstream ss;
       ss << tseg;
       ostringstream filename;
       filename << antname << "-" << ss.str() << ".vdif";
       tsegfile[tseg].open(filename.str().c_str(), ios::binary);
       if(verbose >= 2)
       {
-        cout << " Opened input file " << filename.str() << endl;         
+        cout << " Opened input file " << filename.str() << endl;
       }
 
 	    for(size_t idx = 0; idx < totalnumframes; idx++)
@@ -138,14 +139,14 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
 
 	      //update VDIF Header for the next packet
 	      if(idx != totalnumframes - 1)
-	        nextVDIFHeader((vdif_header *)outputvdifbuf, (int) framespersec);     
+	        nextVDIFHeader((vdif_header *)outputvdifbuf, (int) framespersec);
 	    }
 	    // close input vdif files
 	    for(size_t ch = 0; ch < numrecordedbands; ch++)
 	    {
 	      tsegfile[tseg].close();
 	      if(verbose >= 1)
-	      { 
+	      {
 	        cout << " Closed input file for time-segment " << tseg << endl;
 	      }
 	    }
@@ -156,8 +157,8 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
     {
       cout << " Closed " << antname << ".vdif ..." << endl;
     }
-  } catch (ofstream::failure e) {                                                                              
-    cerr << "Exception opening/closinging input or output vdif file" << endl;                                              
+  } catch (ofstream::failure e) {
+    cerr << "Exception opening/closinging input or output vdif file" << endl;
   }
   // free memory of input and output vdif buffer
   vectorFree(inputvdifbuf);

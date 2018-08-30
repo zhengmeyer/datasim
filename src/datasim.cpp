@@ -86,11 +86,12 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
     {"verbose",   no_argument,        0,  'v'},
     {"test",      no_argument,        0,  't'},
     {"line",      required_argument,  0,  'l'},
+    {"numdivs",   required_argument,  0,  'n'},
     //{"injection", required_argument,  0,  'i'},
     {0,           0,                  0,   0 }
   };
   int long_index = 0;
-  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:",
+  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:n:",
               long_options, &long_index)) != -1)
   {
     switch(tmp)
@@ -161,7 +162,17 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
           }
         }
         break;
-
+        case 'n':
+          if(*optarg == '-' || *optarg == ' ')
+          {
+            cerr << "Option -n requires an unsigned integer as argument." << endl;
+            exit (EXIT_FAILURE);
+          }
+          else
+          {
+            setupinfo.numdivs = atoi(optarg);
+          }
+          break;
       default:
         usage(argc, argv);
         exit (EXIT_FAILURE);
@@ -210,9 +221,9 @@ int main(int argc, char* argv[])
     setupinfo.sfluxdensity = 10;     // source flux density in Jansky
     for(size_t idx = 0; idx < MAXANT; idx++)
       setupinfo.antSEFDs[idx] = 200;
-
     for(size_t i = 0; i < LINESIGLEN; i++)
       setupinfo.linesignal[i] = 0;
+    setupinfo.numdivs = 1;
     /*
     for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
       setupinfo.injectionsignal[i] = 0;
@@ -224,8 +235,8 @@ int main(int argc, char* argv[])
 
   // MPI_Type_create_struct
   // Create struct for setupinfo
-  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN};
-  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR, MPI_FLOAT};
+  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN, 1};
+  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR, MPI_FLOAT, MPI_INT};
   MPI_Aint disp[NITEMS];
   MPI_Datatype structtype;
 
@@ -236,6 +247,7 @@ int main(int argc, char* argv[])
   disp[4] = offsetof(setup, antSEFDs);
   disp[5] = offsetof(setup, inputfilename);
   disp[6] = offsetof(setup, linesignal);
+  disp[7] = offsetof(setup, numdivs);
 
   MPI_Type_create_struct(NITEMS, block, disp, type, &structtype);
   MPI_Type_commit(&structtype);
@@ -301,8 +313,9 @@ int main(int argc, char* argv[])
   int sbinfo[2] = {0, 0};
   // total subbands counter
   int sbcount = 0;
-  int div = 0;
   int color = 0;
+  // 'div' is the number of pieces the simulation time is divided into
+  int div = setupinfo.numdivs;
 
  if(myid == MASTER)
   {
@@ -344,7 +357,7 @@ int main(int argc, char* argv[])
       }
       antsb.push_back(antsbcnt);
     }
-    cout << "Total number of subbands is " << sbcount << endl;
+    cout << "Total number of subbands of all antennas is " << sbcount << endl;
 
     // For the current implementation
     // numprocs has to be greater than sbcount+1
@@ -358,13 +371,14 @@ int main(int argc, char* argv[])
       MPI_Abort(MPI_COMM_WORLD, ERROR);
     }
 
-    // If there are more cores than the number of subbands(+1)
     // It might be possible to also use time-based parallelisation
     // Use color to divide the processes into sub-communication groups, where
     // each group generate dur/div seconds of signals for all subbands
-
-    // 'div' is the number of pieces the simulation time is divided into
-    div = numprocs / numcores_minimum;
+    if(numprocs%div != 0)
+    {
+      cout << "Number of time-based divisions cannot be divided by number of processes ..." << endl;
+      MPI_Abort(MPI_COMM_WORLD, ERROR);
+    }
 
     if(div > 1)
     {
@@ -381,8 +395,7 @@ int main(int argc, char* argv[])
       cout << "Scan end second is " << model->getScanEndSec(0, config->getStartMJD(), config->getStartSeconds()) << endl;
     }
   }
-  // Broadcast div and sbcount to all processes
-  MPI_Bcast(&div, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+  // Broadcast sbcount to all processes
   MPI_Bcast(&sbcount, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
 
   if((size_t)durus%div != 0)
@@ -394,7 +407,7 @@ int main(int argc, char* argv[])
 
   durus = durus/div;
 
-  color = myid / (sbcount + 1);
+  color = myid / (numprocs/div);
   // Create communication groups for each time-based partition
   MPI_Comm local_comm;
   MPI_Comm_split(MPI_COMM_WORLD, color, myid, &local_comm);
@@ -701,7 +714,7 @@ int main(int argc, char* argv[])
   MPI_Type_free(&structtype);
   MPI_Comm_free(&local_comm);
 
-  if((div > 1) && (myid < numdatastreams))
+  if(myid < numdatastreams)
     catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
 
   if(myid == MASTER)

@@ -35,7 +35,7 @@
 #define MAXANT 20
 #define MAXLEN 50
 #define LINESIGLEN 2
-#define NITEMS 7
+#define NITEMS 8
 
 #define MASTER 0
 
@@ -46,7 +46,8 @@ typedef struct setup {
   float sfluxdensity;                       // source flux density in Jansky
   int antSEFDs[MAXANT] ;                    // antenna SEFD
   char inputfilename[MAXLEN];               // .input file name
-  float linesignal[LINESIGLEN];                      // line signal (sky)
+  float linesignal[LINESIGLEN];             // line signal (sky)
+  int numdivs;                              // number of parts to divide into for time-based parallelisation
   //vector<vector<float>> injectionsignal;    // injection signal (station)
 } setup;
 
