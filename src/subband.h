@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -31,8 +31,8 @@ class Subband{
   public:
     // constructor and destructor
     Subband();
-    Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
-          size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth,
+    Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, size_t const &antframespersec,unsigned int const &antSEFD,
+          size_t const &sbIdx, size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth,
           std::string const &antname, int const &mjd, int const &seconds, float const &freq, size_t const &verbose, int groupIdx);
     ~Subband();
 
@@ -47,6 +47,7 @@ class Subband{
     inline size_t getblksize() const { return d_blksize; }
     inline size_t getlength() const { return d_length; }
     inline size_t getantIdx() const { return d_antIdx; }
+    inline size_t getantframespersec() const { return d_antframespersec; }
     inline size_t getsbIdx() const { return d_sbIdx; }
     inline size_t getvpbytes() const { return d_vpbytes; }
     inline size_t getvpsamps() const { return d_vpsamps; }
@@ -58,7 +59,7 @@ class Subband{
     inline std::string getfilename() const { return d_filename; }
     inline uint8_t* getvdifbuf() const {return d_vdifbuf; }
     inline size_t getnearestsample() const {return d_nearestsample; }
-    inline double getfracsamperror() const {return d_fracsamperror; } 
+    inline double getfracsamperror() const {return d_fracsamperror; }
 
     inline void setcptr(size_t cptr) {d_cptr = cptr; }
     inline void setprocptr(size_t procptr) { d_procptr = procptr; }
@@ -67,7 +68,7 @@ class Subband{
      * add station noise
      * apply Ormsby filter
      * inverse DFT/FFT
-     * copy time domain data to arr 
+     * copy time domain data to arr
      */
     void fabricatedata(float* commFreqSig, gsl_rng *rng_inst, float sfluxdensity);
     /*
@@ -76,7 +77,7 @@ class Subband{
     void movedata();
     /*
      * Fill in the process buffer
-     */ 
+     */
     void fillprocbuffer();
     /*
      * Process data in the proc buffer
@@ -88,7 +89,7 @@ class Subband{
      * complex to real conversion
      */
     void processdata();
- 
+
     /*
      * update package counter
      * update nearest sample
@@ -107,14 +108,15 @@ class Subband{
 
     /*
      * Close the output vdif stream
-     */ 
+     */
     void closevdif();
- 
+
   private:
     size_t d_startIdx;        // start index to copy from common signal
     size_t d_blksize;         // block size to copy from startIdx
     size_t d_length;          // size of the subband array for 2*TDUR time
     size_t d_antIdx;          // antenna index the subband belongs to
+    size_t d_antframespersec; // antenna number of frames per second
     size_t d_antSEFD;         // antenna SEFD in Jansky
     size_t d_sbIdx;           // subband index
     size_t d_vpbytes;         // number of bytes in a vdif packet, including VDIF header
@@ -149,12 +151,12 @@ class Subband{
     Ipp32fc* d_temp;          // temporary array of frequency domain signal with size of d_blksize
     Ipp32fc* d_tempt;         // temporary array of time domain signal with size of d_blksize
 
-    Ipp32fc* d_procbuffer;    // process buffer with size N, where N is the number of complex samples of a vdif packet    
+    Ipp32fc* d_procbuffer;    // process buffer with size N, where N is the number of complex samples of a vdif packet
     Ipp32fc* d_procbuffreq;   // process buffer with size N in frequency domain
-    Ipp32fc* d_procbufferrot; // process buffer with size N, where N is the number of complex samples of a vdif packet, after fringe rotation 
+    Ipp32fc* d_procbufferrot; // process buffer with size N, where N is the number of complex samples of a vdif packet, after fringe rotation
     Ipp32fc* d_procbuffreqcorr;// process buffer with size N in frequency domain after fractional sample error correction
-    Ipp32fc* d_buffreqtemp;   // temporary frequency domain signal array with size 2N, which possesses Hermitian property    
-    Ipp32fc* d_realC;         // complex signal array with size 2N, where imaginary part is 0    
+    Ipp32fc* d_buffreqtemp;   // temporary frequency domain signal array with size 2N, which possesses Hermitian property
+    Ipp32fc* d_realC;         // complex signal array with size 2N, where imaginary part is 0
     float* d_real;            // real signal array with size of 2N
 
     int d_bufsigsize;         // size of temporary signal DFT buffer

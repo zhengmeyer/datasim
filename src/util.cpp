@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -29,6 +29,122 @@
 #include "configuration.h"
 
 using namespace std;
+
+
+int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
+                  float minStartFreq, vector<Subband*> &subbands, int numsubbands,
+                  float tdur, int offset, int numworkers, setup setupinfo, int* sbinfo, int color)
+{
+  for(size_t sbnum = 0; sbnum < (size_t)numsubbands; sbnum++)
+  {
+    Subband* subband;
+    // each process initializes its corresponding subbands
+    size_t length, startIdx, blksize;
+    size_t vpsamps;   // number of samples in a vdif packet
+    size_t vpbytes;   // number of bytes in a single-thread vdif packet
+    size_t framebytes;
+    size_t numrecordedbands;
+    float freq, bw;
+    string antname;
+    int mjd, seconds;
+    f64* tempcoeffs;
+    f64* delaycoeffs;
+    double antvptime;
+    size_t antframespersec;
+    int antidx;
+    int sbidx;
+
+    int idx = (offset + sbnum*numworkers) * 2; // index of the subband to be processed in subbandsarray
+    antidx = sbinfo[idx];
+    sbidx = sbinfo[idx+1];
+    framebytes = (size_t)config->getFrameBytes(configindex, antidx);
+    numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, antidx);
+    antframespersec = (size_t)config->getFramesPerSecond(configindex, antidx);
+    antvptime = 1.0 * 1e6 / antframespersec;
+    antname = config->getTelescopeName(antidx);
+    // change the last character of the output vdif name to lower case for fourfit postprocessing
+    //antname.back() = tolower(antname.back());
+    antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
+
+    // allocate memory for delaycoeffs
+    tempcoeffs = vectorAlloc_f64(2);
+    delaycoeffs = vectorAlloc_f64(2);
+
+    if(setupinfo.verbose >= 1)
+    {
+      cout << "Antenna " << antidx << endl;
+      cout << " framebytes is " << framebytes << endl;
+      cout << " numrecordedbands is " << numrecordedbands << endl;
+      cout << " antenna name is " << antname << endl;
+    }
+
+    // only consider scan 0 source 0
+    // scanindex, offsettime in seconds, timespan in seconds, numincrements, antennaindex, scansourceindex, order, delaycoeffs
+    model->calculateDelayInterpolator(0, 0, antvptime*1e-6, 1, antidx, 0, 1, tempcoeffs);
+    model->calculateDelayInterpolator(0, tempcoeffs[1]*1e-6, antvptime*1e-6, 1, antidx, 0, 1, delaycoeffs);
+    if(setupinfo.verbose >= 2)
+    {
+      cout << "delay in us for datastream " << antidx << " at offsettime 0s is " << tempcoeffs[1] << endl;
+      cout << "delay in us for datastream " << antidx << " at offsettime " << tempcoeffs[1]*1e-6 << "s " << " is " << delaycoeffs[1] << endl;
+    }
+
+    // calculate vdif packet size in terms of bytes and number of samples
+    // each sample uses 4 bits, as the sample is complex and we use 2 bits sampling
+    // therefore 2 samples per byte
+    vpbytes = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands + VDIF_HEADER_BYTES;
+    vpsamps = (framebytes - VDIF_HEADER_BYTES) / numrecordedbands * 2;
+
+    freq = config->getDRecordedFreq(configindex, antidx, sbidx);
+    bw = config->getDRecordedBandwidth(configindex, antidx, sbidx);
+    if(!is_integer((freq - minStartFreq) / specRes))
+    {
+      cout << "StartIndex position is not an integer ... " << endl
+           << "Something is wrong here ... " << endl;
+      return EXIT_FAILURE;
+    }
+    else
+      startIdx = (freq - minStartFreq) / specRes;
+
+    blksize = bw / specRes; // number of samples to copy from startIdx
+    length = bw * tdur * 2; // size of the array twice of tdur
+
+    if(setupinfo.verbose >= 1)
+    {
+      cout << "Antenna " << antidx << " subband " << sbidx << ":" << endl
+           << "  start index is " << startIdx << endl
+           << "  block size is " << blksize << " length is " << length << endl
+           << "  each vdif packet has " << vpsamps << " samples" << endl
+           << "  VDIF_HEADER_BYTES is " << VDIF_HEADER_BYTES << " vpbytes is " << vpbytes << endl
+           << "  number of samples in vdif packet is " << vpsamps << " framebytes is " << framebytes << endl
+           << "  recorded freq is " << freq << endl;
+    }
+
+    subband = new Subband(startIdx, blksize, length, antidx, antframespersec, setupinfo.antSEFDs[antidx], sbidx,
+                       vpbytes, vpsamps, delaycoeffs, bw, antname, mjd, seconds, freq, setupinfo.verbose, color);
+    subbands.push_back(subband);
+    // finish initializing subband
+    // free memories for temporary allacated arrays
+    vectorFree(tempcoeffs);
+    vectorFree(delaycoeffs);
+  }
+
+  return EXIT_SUCCESS;
+}
+
+void freeSubbands(vector<Subband*> &subbands)
+{
+  vector<Subband*>::iterator it;
+  for(it = subbands.begin(); it != subbands.end(); it++)
+  {
+    (*it)->closevdif();
+  }
+  // free the memory allocated
+  for(size_t i = 0; i < subbands.size(); i++)
+  {
+    delete subbands[i];
+  }
+  subbands.clear();
+}
 
 /*
  * Check whether the fractional part of a floating point number is 0
@@ -76,7 +192,7 @@ int getSpecRes(Configuration* config, int configindex, float& specRes, size_t ve
 
   // if one or more results are not integers
   // divide the value of tempSpecRes by 2
-  // if GCD cannot be found at 1/(2^10), stop the calculation 
+  // if GCD cannot be found at 1/(2^10), stop the calculation
   }while(!isGCD && (cnt < 10));
 
   if(cnt == 10)
@@ -156,11 +272,15 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
  * move data from the second half of the array to the first half
  * set the process pointer to the proper location
  */
-void movedata(Subband* subband, size_t verbose)
-{
-  if(verbose >= 2) cout << "Move data in each subband array forward" << endl;
-  subband->movedata();
-}
+ void movedata(vector<Subband*>& sbVec, size_t verbose)
+ {
+   if(verbose >= 2) cout << "Move data in each subband array forward" << endl;
+   vector<Subband*>::iterator it;
+   for(it = sbVec.begin(); it != sbVec.end(); ++it)
+   {
+     (*it)->movedata();
+   }
+ }
 
 /*
  * loop through each subband of each antenna
@@ -169,22 +289,44 @@ void movedata(Subband* subband, size_t verbose)
  * quantization
  * pack to vdif
  */
-int processAndPacketize(size_t framespersec, Subband* subband, Model* model, size_t verbose)
+ int processAndPacketize(vector<Subband*>& sbVec, Model* model, size_t verbose)
+ {
+   vector<Subband*>::iterator it;
+   for(it = sbVec.begin(); it != sbVec.end(); ++it)
+   {
+     if(verbose >= 2)
+       cout << "Antenna " << (*it)->getantIdx() << " Subband "
+            << (*it)->getsbIdx() << " process vdif packet" << endl;
+     (*it)->fillprocbuffer();
+     (*it)->processdata();
+     (*it)->updatevalues(model);
+
+     (*it)->quantize();
+     (*it)->writetovdif();
+     if(verbose >= 2)
+       cout << "current seconds is " << ((vdif_header *)(*it)->getvdifbuf())->seconds
+            << ", frame number is " << ((vdif_header *)(*it)->getvdifbuf())->frame << endl;
+     //update VDIF Header for the next packet
+     nextVDIFHeader((vdif_header *) (*it)->getvdifbuf(), (int) (*it)->getantframespersec());
+   }
+   return (EXIT_SUCCESS);
+ }
+
+ /*
+ * calculate the lowest process pointer in terms of time among all subband arrays
+ */
+double getMinProcPtrTime(vector<Subband*>& sbVec, size_t verbose)
 {
-  if(verbose >= 2)
-    cout << "Antenna " << subband->getantIdx() << " Subband "
-         << subband->getsbIdx() << " process vdif packet" << endl;
-  subband->fillprocbuffer(); 
-  subband->processdata(); 
-  subband->updatevalues(model);
-
-  subband->quantize();
-  subband->writetovdif();
-  if(verbose >= 2)
-    cout << "current seconds is " << ((vdif_header *)subband->getvdifbuf())->seconds
-         << ", frame number is " << ((vdif_header *)subband->getvdifbuf())->frame << endl;
-  //update VDIF Header for the next packet
-  nextVDIFHeader((vdif_header *) subband->getvdifbuf(), (int) framespersec);    
-
-  return (EXIT_SUCCESS);
+  vector<Subband*>::iterator it = sbVec.begin();
+  double minprocptrtime = (*it)->getprocptr() * (1.0 / (*it)->getbandwidth());
+  double temp;
+  for(it = sbVec.begin(); it != sbVec.end(); ++it)
+  {
+    temp = (*it)->getprocptr() * (1.0 / (*it)->getbandwidth());
+    if(verbose >= 2)
+      cout << "Process Pointer in time for Antenna " << (*it)->getantIdx() << " Subband "
+           << (*it)->getsbIdx() << " is " << temp << " us" <<endl;
+    minprocptrtime = (minprocptrtime > temp) ? temp : minprocptrtime;
+  }
+  return minprocptrtime;
 }

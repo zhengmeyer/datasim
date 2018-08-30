@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -43,7 +43,6 @@ Subband::Subband()
     d_vpbytes(0), d_vpsamps(0), d_bandwidth(0), d_antname(0),
     d_mjd(0), d_seconds(0), d_freq(0), d_verbose(0), d_groupIdx(0)
 {
-  int status;
   d_starttime = 0;
 
   // current pointer index for signal generation
@@ -68,9 +67,9 @@ Subband::Subband()
   d_procptr =  0;
 
   // vdif file name to write data to
-  d_filename = ""; 
+  d_filename = "";
   // open the output stream
-  d_vdiffile.open(""); 
+  d_vdiffile.open("");
 
   try
   {
@@ -87,15 +86,9 @@ Subband::Subband()
   }
 
   // initialize pDFTSpecC and bufsize
-  //vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
-  //vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
-  //vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
-  status = vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufsigsize, &d_bufsig);
-  status = vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufprocsize, &d_bufproc);
-  status = vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate, &d_bufCToRsize, &d_bufCToR);
+  vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufsigsize, &d_bufsig);
+  vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufprocsize, &d_bufproc);
+  vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate, &d_bufCToRsize, &d_bufCToR);
 
 
   // allocate memory for DFT buffer
@@ -137,14 +130,13 @@ Subband::Subband()
   d_square = 0.0;
 }
 
-Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, unsigned int const &antSEFD, size_t const &sbIdx,
-             size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth, string const &antname,
+Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &length, size_t const &antIdx, size_t const &antframespersec, unsigned int const &antSEFD,
+             size_t const &sbIdx, size_t const &vpbytes, size_t const &vpsamps, f64* const &delaycoeffs, float const &bandwidth, string const &antname,
              int const &mjd, int const &seconds, float const &freq, size_t const &verbose, int groupIdx)
-  : d_startIdx(startIdx), d_blksize(blksize), d_length(length), d_antIdx(antIdx), d_antSEFD(antSEFD), d_sbIdx(sbIdx),
-    d_vpbytes(vpbytes), d_vpsamps(vpsamps), d_bandwidth(bandwidth), d_antname(antname),
+  : d_startIdx(startIdx), d_blksize(blksize), d_length(length), d_antIdx(antIdx), d_antframespersec(antframespersec), d_antSEFD(antSEFD),
+    d_sbIdx(sbIdx), d_vpbytes(vpbytes), d_vpsamps(vpsamps), d_bandwidth(bandwidth), d_antname(antname),
     d_mjd(mjd), d_seconds(seconds), d_freq(freq), d_verbose(verbose), d_groupIdx(groupIdx)
 {
-  int status;
   d_starttime = delaycoeffs[1];
 
   // current pointer index for signal generation
@@ -182,12 +174,12 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
   stringstream ss, cc;
   ss << d_sbIdx;
   cc << d_groupIdx;
-  d_filename = d_antname + "_" + ss.str() + "-" + cc.str() + ".vdif"; 
+  d_filename = d_antname + "_" + ss.str() + "-" + cc.str() + ".vdif";
 
   // open the output stream
-  d_vdiffile.open(d_filename.c_str()); 
+  d_vdiffile.open(d_filename.c_str());
   if(d_verbose >= 1) cout << "Open VDIF output file stream " << d_filename << endl;
- 
+
   // allocate memory for d_arr
   if(d_verbose >= 1) cout << "Allocating memory for ant " << d_antIdx << " subband " << d_sbIdx << endl;
   try
@@ -205,15 +197,9 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
   }
 
   // initialize pDFTSpecC and bufsize
-  //vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCsig, &d_bufsigsize);
-  //vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCproc, &d_bufprocsize);
-  //vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate);
-  //vectorGetDFTBufSizeC_cf32(d_pDFTSpecCCToR, &d_bufCToRsize);
-  status = vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufsigsize, &d_bufsig);
-  status = vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufprocsize, &d_bufproc);
-  status = vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate, &d_bufCToRsize, &d_bufCToR);
+  vectorInitDFTC_cf32(&d_pDFTSpecCsig, d_blksize, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufsigsize, &d_bufsig);
+  vectorInitDFTC_cf32(&d_pDFTSpecCproc, d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate,  &d_bufprocsize, &d_bufproc);
+  vectorInitDFTC_cf32(&d_pDFTSpecCCToR, 2 * d_vpsamps, IPP_FFT_DIV_INV_BY_N, ippAlgHintAccurate, &d_bufCToRsize, &d_bufCToR);
 
 
   // allocate memory for DFT buffer
@@ -288,6 +274,7 @@ Subband::Subband(Subband const &other)
   d_blksize = other.d_blksize;
   d_length = other.d_length;
   d_antIdx = other.d_antIdx;
+  d_antframespersec = other.d_antframespersec;
   d_antSEFD = other.d_antSEFD;
   d_sbIdx = other.d_sbIdx;
   d_vpbytes = other.d_vpbytes;
@@ -304,9 +291,9 @@ Subband::Subband(Subband const &other)
   d_filename = other.d_filename;
   d_groupIdx = other.d_groupIdx;
 
-  d_vdiffile.copyfmt(other.d_vdiffile);      
-  d_vdiffile.clear(other.d_vdiffile.rdstate());                          
-  d_vdiffile.basic_ios<char>::rdbuf(other.d_vdiffile.rdbuf());  
+  d_vdiffile.copyfmt(other.d_vdiffile);
+  d_vdiffile.clear(other.d_vdiffile.rdstate());
+  d_vdiffile.basic_ios<char>::rdbuf(other.d_vdiffile.rdbuf());
 
   d_sampletime = other.d_sampletime;
   d_vptime = other.d_vptime;
@@ -349,6 +336,7 @@ void Subband::swap(Subband& n2)
   swap(d_blksize, n2.d_blksize);
   swap(d_length, n2.d_length);
   swap(d_antIdx, n2.d_antIdx);
+  swap(d_antframespersec, n2.d_antframespersec);
   swap(d_antSEFD, n2.d_antSEFD);
   swap(d_sbIdx, n2.d_sbIdx);
   swap(d_vpbytes, n2.d_vpbytes);
@@ -366,19 +354,19 @@ void Subband::swap(Subband& n2)
   //d_vdiffile.swap(n2.d_vdiffile);
 
   std::ofstream d_tempvdif;
-  d_tempvdif.copyfmt(d_vdiffile);      
-  d_tempvdif.clear(d_vdiffile.rdstate());                          
-  d_tempvdif.basic_ios<char>::rdbuf(d_vdiffile.rdbuf());  
+  d_tempvdif.copyfmt(d_vdiffile);
+  d_tempvdif.clear(d_vdiffile.rdstate());
+  d_tempvdif.basic_ios<char>::rdbuf(d_vdiffile.rdbuf());
 
 
-  d_vdiffile.copyfmt(n2.d_vdiffile);      
-  d_vdiffile.clear(n2.d_vdiffile.rdstate());                          
+  d_vdiffile.copyfmt(n2.d_vdiffile);
+  d_vdiffile.clear(n2.d_vdiffile.rdstate());
   d_vdiffile.basic_ios<char>::rdbuf(n2.d_vdiffile.rdbuf());
 
-  n2.d_vdiffile.copyfmt(d_tempvdif);      
-  n2.d_vdiffile.clear(d_tempvdif.rdstate());                          
+  n2.d_vdiffile.copyfmt(d_tempvdif);
+  n2.d_vdiffile.clear(d_tempvdif.rdstate());
   n2.d_vdiffile.basic_ios<char>::rdbuf(d_tempvdif.rdbuf());
- 
+
   swap(d_sampletime, n2.d_sampletime);
   swap(d_vptime, n2.d_vptime);
   swap(d_nearestsample, n2.d_nearestsample);
@@ -427,7 +415,7 @@ Subband const &Subband::operator=(Subband const &other)
  */
 void Subband::fabricatedata(float* commFreqSig, gsl_rng *rng_inst, float sfluxdensity)
 {
-  // select data from commFreqSig 
+  // select data from commFreqSig
   // add station noise
   // apply Ormsby filter
   // inverse DFT/FFT
@@ -530,7 +518,7 @@ void Subband::processdata()
 
   // 3. transform signal from frequency domain back to time domain
   inverseDFT(d_buffreqtemp, d_realC, d_pDFTSpecCCToR, d_bufCToR);
-  
+
   // 4. the imaginary part of values in d_realC should be 0
   //    copy the real part of the value to d_real
   complex_to_real();
@@ -555,14 +543,14 @@ void Subband::updatevalues(Model* model)
   model->calculateDelayInterpolator(0, (d_starttime+d_pkcounter*d_vptime + d_shift * d_sampletime)*1e-6, d_vptime*1e-6, 1, d_antIdx, 0, 1, d_delaycoeffs);
   if(d_verbose >= 2)
     cout << "delaycoeffs at offset " << (d_starttime+d_pkcounter*d_vptime + d_shift * d_sampletime)*1e-6 << " is " << d_delaycoeffs[0] << " " << d_delaycoeffs[1] << endl;
-  
+
   // calculate fractional sample error for the next vdif packet
   d_fracsamperror += d_delaycoeffs[1] - (prevdelay + prevrate * d_vptime * 1e-6);
 
   // check if the fractional sample error is larger than 0.5*sampletime
   // or smaller than -0.5*sampletime
   // if so, move start position of the next vdif package accordingly
-  
+
   if(d_verbose >= 2)
   {
     cout << "Antenna " << d_antIdx << " subband " << d_sbIdx << endl;
@@ -603,7 +591,7 @@ void Subband::updatevalues(Model* model)
 void Subband::quantize()
 {
   if(d_verbose >= 2)
-    cout << "   Start quantization ..." << endl; 
+    cout << "   Start quantization ..." << endl;
   size_t shift = 0;
   uint8_t bits, mask;
   uint8_t *optr = &d_vdifbuf[VDIF_HEADER_BYTES];
@@ -689,7 +677,7 @@ void Subband::copyToTemp(float* commFreqSig)
 }
 
 /*
- * Change common signal amplitutde by multiplying square root of source flux density 
+ * Change common signal amplitutde by multiplying square root of source flux density
  */
 void Subband::mulsfluxdensity(float sfluxdensity)
 {
@@ -751,22 +739,22 @@ void Subband::applyfilter()
   d_temp[1].im *= 1.0/2;
   d_temp[2].im *= 4.0/5;
   d_temp[d_blksize-1].im *= 1.0/2;
-  d_temp[d_blksize-2].im *= 4.0/5; 
+  d_temp[d_blksize-2].im *= 4.0/5;
   if(d_verbose >= 2)
   {
-    cout << "Applied Ormsby filter to the temporary signal array for ant " 
+    cout << "Applied Ormsby filter to the temporary signal array for ant "
          << d_antIdx << " subband " << d_sbIdx  << endl;
   }
 }
 
 /*
- * Append the time domain signal in d_tempt to the signal array d_arr 
+ * Append the time domain signal in d_tempt to the signal array d_arr
  */
 void Subband::copyToArr()
 {
   if(d_verbose >= 2)
   {
-    cout << "Copying time domain signal from temporary signal array d_tempt to signal array d_arr for ant " 
+    cout << "Copying time domain signal from temporary signal array d_tempt to signal array d_arr for ant "
          << d_antIdx << " subband " << d_sbIdx  << endl;
   }
   for(size_t i = 0; i < d_blksize; i++, d_cptr++)
@@ -775,10 +763,10 @@ void Subband::copyToArr()
 
     if((i < 10) && (d_verbose >= 2))
     {
-      cout << " current pointer index is " << d_cptr << " d_tempt[" << i << "] real is " 
+      cout << " current pointer index is " << d_cptr << " d_tempt[" << i << "] real is "
            << d_tempt[i].re << " d_arr[" << d_cptr << "] real is " << d_arr[d_cptr].re << endl;
     }
-  }  
+  }
 }
 
 /*
@@ -794,7 +782,7 @@ void Subband::fillBuffreqtemp()
     d_buffreqtemp[i].re = d_procbuffreq[i].re;
     d_buffreqtemp[i].im = d_procbuffreq[i].im;
 
-    // the second half of d_buffreqtemp possesses the Hermitian property of the signal 
+    // the second half of d_buffreqtemp possesses the Hermitian property of the signal
     d_buffreqtemp[2*d_vpsamps - i].re = d_buffreqtemp[i].re;
     d_buffreqtemp[2*d_vpsamps - i].im = -d_buffreqtemp[i].im;
   }
@@ -810,7 +798,7 @@ void Subband::fillBuffreqtemp()
 void Subband::complex_to_real()
 {
   for(size_t i = 0; i < 2 * d_vpsamps; i++)
-  { 
+  {
     // the imaginary part should be around zero
     if(i < 10 && d_verbose >= 2)
     {
@@ -818,7 +806,7 @@ void Subband::complex_to_real()
       cout << "Absolute value of imaginary part of d_realC at " << i << " is " << fabs(d_realC[i].im) << endl;
     }
     assert(fabs(d_realC[i].im) < EPSILON);
-    d_real[i] = d_realC[i].re; 
+    d_real[i] = d_realC[i].re;
   }
 }
 
@@ -828,7 +816,7 @@ void Subband::complex_to_real()
 void Subband::DFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf)
 {
   if(d_verbose >= 2) cout << "calling DFT ..." << endl;
-  vectorDFT_CtoC_cf32(pSrc, pDst, pDFTSpecC, buf); 
+  vectorDFT_CtoC_cf32(pSrc, pDst, pDFTSpecC, buf);
 }
 
 /*
@@ -881,8 +869,8 @@ void Subband::applyfringerotation()
     // delay is us
     // phase value should be opposite to what's in DiFX
     phase = 2 * M_PI * fraction_of(d_freq * (d_delaycoeffs[1] + d_delaycoeffs[0] * (double)idx / d_vpsamps));
-    d_fringerotbuf[idx].re = cos(phase); 
-    d_fringerotbuf[idx].im = sin(phase); 
+    d_fringerotbuf[idx].re = cos(phase);
+    d_fringerotbuf[idx].im = sin(phase);
   }
 
   status = ippsMul_32fc(d_fringerotbuf, d_procbuffer, d_procbufferrot, d_vpsamps);

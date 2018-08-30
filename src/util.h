@@ -51,6 +51,12 @@ typedef struct setup {
   //vector<vector<float>> injectionsignal;    // injection signal (station)
 } setup;
 
+int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
+                  float minStartFreq, vector<Subband*> &subbands, int numsubbands,
+                  float tdur, int offset, int numworkers, setup setupinfo, int* sbinfo, int color);
+
+void freeSubbands(vector<Subband*> &subbands);
+
 /*
  * Check whether the fractional part of a floating point number is 0
  */
@@ -85,20 +91,25 @@ float getMinStartFreq(Configuration* config, int configindex, size_t verbose);
 void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verbose);
 
 /*
- * loop through each subband of each antenna
+ * loop through each subband
  * move data from the second half of the array to the first half
  * set the process pointer to the proper location
  */
-void movedata(Subband* subband, size_t verbose);
+ void movedata(vector<Subband*>& sbVec, size_t verbose);
 
 /*
- * loop through each subband of each antenna
+ * loop through each subband
  * select vdif packet size of data to process
  * process the data
  * quantization
  * pack to vdif
  */
-int processAndPacketize(size_t framespersec, Subband* subband, Model* model, size_t verbose);
+ int processAndPacketize(vector<Subband*>& sbVec, Model* model, size_t verbose);
+
+ /*
+ * calculate the lowest process pointer in terms of time among all subband arrays
+ */
+double getMinProcPtrTime(vector<Subband*>& sbVec, size_t verbose);
 
 #endif /* __UTIL_H__ */
 
