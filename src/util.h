@@ -53,7 +53,7 @@ typedef struct setup {
 
 int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
                   float minStartFreq, vector<Subband*> &subbands, int numsubbands,
-                  float tdur, int offset, int numworkers, setup setupinfo, int* sbinfo, int color);
+                  float tdur, setup setupinfo, int* sbinfo, int color);
 
 void freeSubbands(vector<Subband*> &subbands);
 

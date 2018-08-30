@@ -421,7 +421,9 @@ int main(int argc, char* argv[])
   }
 
   int numsbperproc = sbcount / local_size;
-  // subbandsinfo is only used by MASTER to store sbinfo
+  if(setupinfo.verbose >= 1)
+    cout << "number of subbands per process is " << numsbperproc << endl;
+  // subbandsinfo is only used by MASTER to store subband information
   // and distribute the information to all processes using MPI_Scatter(...)
 
   // create a 2D array with the totoal number of subbands
@@ -448,13 +450,12 @@ int main(int argc, char* argv[])
 
   // Scatter sbinfo to each process
   // Disbribute array of (antidx, sbidx) information to each process
-  //
   MPI_Scatter(&subbandsinfo[0], numsbperproc*2, MPI_INT, &sbinfo[0], numsbperproc*2, MPI_INT, MASTER, local_comm);
 
   // master generates common signal
-  // each subband copies its data to the right place
+  // each process copies its corresponding subband data to the right place
   // if use time-based parallelization
-  // master is local_rank 0 of each group (MPI Shared-memory)
+  // master is local_rank 0 of each group
 
   size_t stdur = tdur/stime;
 
@@ -468,17 +469,12 @@ int main(int argc, char* argv[])
     cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
   }
 
-  initSubbands(config, configindex, model, specRes, minStartFreq, subbands, numsbperproc, tdur, local_rank, local_size, setupinfo, sbinfo, color);
+  // every process initialize its own subbands
+  initSubbands(config, configindex, model, specRes, minStartFreq, subbands, numsbperproc, tdur, setupinfo, sbinfo, color);
 
-  if(setupinfo.verbose == 1)
+  if(setupinfo.verbose >= 1)
     cout << "Process " << myid
          << ", local rank " << local_rank << " of group " << color << endl;
-
-  if(local_rank == MASTER)
-  {
-    if(setupinfo.verbose >= 1)
-        cout << "Master process of group " << color << " generates " << tdur << " us signal" << endl;
-  }
 
   float* commFreqSig;                  // 0.5 seconds common frequency domain signal
   float* commSlice;
@@ -488,22 +484,20 @@ int main(int argc, char* argv[])
   commFreqSig = new float [sampsize];
   commSlice = new float [numSamps*2];
 
-  if(local_rank == MASTER)
-  {
-    if(setupinfo.verbose >= 1)
-      cout << "Generate " << tdur << " us signal" << endl;
-    // User tdur + 1 as reference to calculate the smallest process pointer time
-    minprocptrtime = tdur + 1;
-    gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
-  }
-
-  MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
-
   // calculate linesignal position if linesignal value is given
   size_t linesigidx = setupinfo.linesignal[0] / specRes * 2;
 
-  do
+  while(timer < durus)
   {
+    if(local_rank == MASTER)
+    {
+      if(setupinfo.verbose >= 1)
+        cout << "Generate " << tdur << " us signal" << endl;
+      gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
+    }
+
+    MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
+
     vector<Subband*>::iterator it;
     for(it = subbands.begin(); it != subbands.end(); ++it)
     {
@@ -572,18 +566,12 @@ int main(int argc, char* argv[])
         cout << "tt is " << tt << ", timer is " << timer << endl;
     }
 
-    if(local_rank == MASTER)
-      gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
-
-    MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
     MPI_Bcast(&timer, 1, MPI_DOUBLE, MASTER, local_comm);
-  } while(timer < durus);
+  }
 
 
   // free allocated common signal memory
   delete commFreqSig;
-
-  freeSubbands(subbands);
 
   if(local_rank < numdatastreams)
   {
@@ -598,6 +586,7 @@ int main(int argc, char* argv[])
   if(myid < numdatastreams)
     catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
 
+  freeSubbands(subbands);
   if(myid == MASTER)
   {
     end = MPI_Wtime();

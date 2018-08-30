@@ -33,7 +33,7 @@ using namespace std;
 
 int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
                   float minStartFreq, vector<Subband*> &subbands, int numsubbands,
-                  float tdur, int offset, int numworkers, setup setupinfo, int* sbinfo, int color)
+                  float tdur, setup setupinfo, int* sbinfo, int color)
 {
   for(size_t sbnum = 0; sbnum < (size_t)numsubbands; sbnum++)
   {
@@ -54,9 +54,8 @@ int initSubbands(Configuration* config, int configindex, Model* model, float spe
     int antidx;
     int sbidx;
 
-    int idx = (offset + sbnum*numworkers) * 2; // index of the subband to be processed in subbandsarray
-    antidx = sbinfo[idx];
-    sbidx = sbinfo[idx+1];
+    antidx = sbinfo[sbnum*2];
+    sbidx = sbinfo[sbnum*2+1];
     framebytes = (size_t)config->getFrameBytes(configindex, antidx);
     numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, antidx);
     antframespersec = (size_t)config->getFramesPerSecond(configindex, antidx);
