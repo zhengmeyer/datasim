@@ -314,6 +314,7 @@ int main(int argc, char* argv[])
     cout << "WARNING!!!!!!!\n"
          << "Cannot divide durus by div!\n"
          << "Will only generate " << durus/div * div << " microseconds data ..." << endl;
+    durus = (float)((size_t)durus/div * div);
   }
 
   // calculate specRes, number of samples per time block, step time
@@ -412,24 +413,26 @@ int main(int argc, char* argv[])
   int local_rank, local_size;
   MPI_Comm_rank(local_comm, &local_rank);
   MPI_Comm_size(local_comm, &local_size);
+  if(myid == MASTER && sbcount%local_size != 0)
+  {
+    cout << "ERROR: number of processes cannot be divided by total nubmer of subbands ...\n"
+         << "If time-based serialisation is specified, please make sure np/numdivs can be divided by total number of subbands"<< endl;
+    return EXIT_FAILURE;
+  }
 
-  // !!!!!!!!!!!! parallel part starts here
-  int numworkers = local_size - 1;
-  int numsbperworker = (sbcount / numworkers == 0) ? sbcount / numworkers : sbcount / numworkers + 1;
+  int numsbperproc = sbcount / local_size;
   // subbandsinfo is only used by MASTER to store sbinfo
   // and distribute the information to all processes using MPI_Scatter(...)
 
   // create a 2D array with the totoal number of subbands
   // containting antenna index and subband index of each subband
   int* subbandsinfo;
-  int* sbinfo = new int [numsbperworker * 2];
+  int* sbinfo = new int [numsbperproc * 2];
   if(local_rank == MASTER)
   {
     subbandsinfo = new int [sbcount * 2];
 
-    int numprocessed = 1;
-    subbandsinfo[0] = 0;
-    subbandsinfo[1] = 1;
+    int numprocessed = 0;
     for(int i = 0; i < numdatastreams; i++)
     {
       numrecordedbands = config->getDNumRecordedBands(configindex, i);
@@ -446,7 +449,7 @@ int main(int argc, char* argv[])
   // Scatter sbinfo to each process
   // Disbribute array of (antidx, sbidx) information to each process
   //
-  MPI_Scatter(&subbandsinfo[0], numsbperworker*2, MPI_INT, &sbinfo[0], numsbperworker*2, MPI_INT, MASTER, local_comm);
+  MPI_Scatter(&subbandsinfo[0], numsbperproc*2, MPI_INT, &sbinfo[0], numsbperproc*2, MPI_INT, MASTER, local_comm);
 
   // master generates common signal
   // each subband copies its data to the right place
@@ -457,26 +460,19 @@ int main(int argc, char* argv[])
 
   // Subband-based parallelization starts here
   vector<Subband*> subbands;
-  if(local_rank != MASTER)
+
+  int mjd = config->getStartMJD();
+  int seconds = config->getStartSeconds();
+  if(setupinfo.verbose >= 1)
   {
-    int mjd = config->getStartMJD();
-    int seconds = config->getStartSeconds();
-    if(setupinfo.verbose >= 1)
-    {
-      cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
-    }
-
-    initSubbands(config, configindex, model, specRes, minStartFreq, subbands, numsbperworker, tdur, local_rank-1, numworkers, setupinfo, sbinfo, color);
-
-    if(setupinfo.verbose == 1)
-      cout << "Process " << myid
-           << ", local rank " << local_rank << " of group " << color << endl;
-
+    cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
   }
-  /*
-   * generate common frequency domain signal
-   * and send it to each subband of each antenna
-   */
+
+  initSubbands(config, configindex, model, specRes, minStartFreq, subbands, numsbperproc, tdur, local_rank, local_size, setupinfo, sbinfo, color);
+
+  if(setupinfo.verbose == 1)
+    cout << "Process " << myid
+         << ", local rank " << local_rank << " of group " << color << endl;
 
   if(local_rank == MASTER)
   {
@@ -486,9 +482,6 @@ int main(int argc, char* argv[])
 
   float* commFreqSig;                  // 0.5 seconds common frequency domain signal
   float* commSlice;
-
-  MPI_Request request;
-  MPI_Status status;
 
   // allocate memory for the common frequency domain signal
   int sampsize = numSamps*2*stdur;          // *2 due to complex number
@@ -511,49 +504,44 @@ int main(int argc, char* argv[])
 
   do
   {
-    if(local_rank == MASTER)
-      gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
-    else
+    vector<Subband*>::iterator it;
+    for(it = subbands.begin(); it != subbands.end(); ++it)
     {
-      vector<Subband*>::iterator it;
-      for(it = subbands.begin(); it != subbands.end(); ++it)
+      for(size_t t = 0; t < stdur; t++)
       {
-        for(size_t t = 0; t < stdur; t++)
+        for(size_t samp = 0; samp < (size_t)numSamps*2; samp++)
         {
-          for(size_t samp = 0; samp < (size_t)numSamps*2; samp++)
-          {
-            size_t idx = t*numSamps*2+samp;
-            commSlice[samp] = commFreqSig[idx];
-          }
-
-          // add line signal amplitute to common signal
-          // the frequency is covered by multiple sample in the time block (stime)
-          for(size_t s = 0 ; s < stime; s++)
-          {
-            commSlice[linesigidx + 2*s] += sqrt(setupinfo.linesignal[1]);
-            commSlice[linesigidx + 2*s+1] += sqrt(setupinfo.linesignal[1]);
-          }
-
-          (*it)->fabricatedata(commSlice, rng_inst[myid], setupinfo.sfluxdensity);
+          size_t idx = t*numSamps*2+samp;
+          commSlice[samp] = commFreqSig[idx];
         }
-        // after TDUR time signal is generated for each subband array
-        // set the current pointer of each array back to the beginning of the second half
 
-        (*it)->setcptr((*it)->getlength() / 2);
-        if(setupinfo.verbose >= 2)
-          cout << "Antenna " << (*it)->getantIdx() << " subband " << (*it)->getsbIdx()
-                             << " set current pointer back to " << (*it)->getlength() / 2 << endl;
+        // add line signal amplitute to common signal
+        // the frequency is covered by multiple sample in the time block (stime)
+        for(size_t s = 0 ; s < stime; s++)
+        {
+          commSlice[linesigidx + 2*s] += sqrt(setupinfo.linesignal[1]);
+          commSlice[linesigidx + 2*s+1] += sqrt(setupinfo.linesignal[1]);
+        }
+
+        (*it)->fabricatedata(commSlice, rng_inst[myid], setupinfo.sfluxdensity);
       }
-      // move data in each array from the second half to the first half
-      // and set the process pointer to the proper location
-      // i.e. data is moved half array ahead, therefore process pointer
-      // is moved half array ahead
-      movedata(subbands, setupinfo.verbose);
+      // after TDUR time signal is generated for each subband array
+      // set the current pointer of each array back to the beginning of the second half
 
-      // each subband calculates its own process pointer time
-      minprocptrtime = getMinProcPtrTime(subbands, setupinfo.verbose);
-      if(setupinfo.verbose >= 2) cout << "Process " << local_rank << ": local minimum procptrtime is " << minprocptrtime << endl;
+      (*it)->setcptr((*it)->getlength() / 2);
+      if(setupinfo.verbose >= 2)
+        cout << "Antenna " << (*it)->getantIdx() << " subband " << (*it)->getsbIdx()
+                           << " set current pointer back to " << (*it)->getlength() / 2 << endl;
     }
+    // move data in each array from the second half to the first half
+    // and set the process pointer to the proper location
+    // i.e. data is moved half array ahead, therefore process pointer
+    // is moved half array ahead
+    movedata(subbands, setupinfo.verbose);
+
+    // each subband calculates its own process pointer time
+    minprocptrtime = getMinProcPtrTime(subbands, setupinfo.verbose);
+    if(setupinfo.verbose >= 2) cout << "Process " << local_rank << ": local minimum procptrtime is " << minprocptrtime << endl;
 
     MPI_Allreduce(&minprocptrtime, &tt, 1, MPI_DOUBLE, MPI_MIN, local_comm);
     if(setupinfo.verbose >= 2)
@@ -568,39 +556,34 @@ int main(int argc, char* argv[])
       return (EXIT_FAILURE);
     }
 
-    MPI_Ibcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, local_comm, &request);
+
     while((tt < tdur) && (timer < durus))
     {
-      if(local_rank != MASTER)
+      // process and packetize one vdif packet for each subband array
+      int rc = processAndPacketize(subbands, model, setupinfo.verbose);
+      if(rc)
       {
-        // process and packetize one vdif packet for each subband array
-        int rc = processAndPacketize(subbands, model, setupinfo.verbose);
-        if(rc)
-        {
-          MPI_Abort(MPI_COMM_WORLD, ERROR);
-          return(EXIT_FAILURE);
-        }
+        MPI_Abort(MPI_COMM_WORLD, ERROR);
+        return(EXIT_FAILURE);
       }
-
       tt += refvptime;
       timer += refvptime;
+      if((local_rank == MASTER) && (setupinfo.verbose >=2))
+        cout << "tt is " << tt << ", timer is " << timer << endl;
     }
 
-    // Wait for Ibcast to finish
-    MPI_Wait(&request, &status);
+    if(local_rank == MASTER)
+      gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
 
-    if((local_rank == MASTER) && (setupinfo.verbose >=2))
-      cout << "tt is " << tt << ", timer is " << timer << endl;
-
+    MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
     MPI_Bcast(&timer, 1, MPI_DOUBLE, MASTER, local_comm);
-
   } while(timer < durus);
 
 
   // free allocated common signal memory
   delete commFreqSig;
 
-  if(local_rank != MASTER) freeSubbands(subbands);
+  freeSubbands(subbands);
 
   if(local_rank < numdatastreams)
   {
