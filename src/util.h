@@ -35,7 +35,7 @@
 #define MAXANT 20
 #define MAXLEN 50
 #define LINESIGLEN 2
-#define NITEMS 8
+#define NITEMS 9
 
 #define MASTER 0
 
@@ -46,9 +46,9 @@ typedef struct setup {
   float sfluxdensity;                       // source flux density in Jansky
   int antSEFDs[MAXANT] ;                    // antenna SEFD
   char inputfilename[MAXLEN];               // .input file name
-  float linesignal[LINESIGLEN];             // line signal (sky)
+  float linesignal[LINESIGLEN];             // spectral line signal
   int numdivs;                              // number of parts to divide into for time-based parallelisation
-  //vector<vector<float>> injectionsignal;    // injection signal (station)
+  int pcal;                                 // phasecal interval
 } setup;
 
 int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
@@ -104,7 +104,7 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
  * quantization
  * pack to vdif
  */
- int processAndPacketize(vector<Subband*>& sbVec, Model* model, size_t verbose);
+ int processAndPacketize(vector<Subband*>& sbVec, Model* model, size_t verbose, int pcal);
 
  /*
  * calculate the lowest process pointer in terms of time among all subband arrays

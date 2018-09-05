@@ -34,7 +34,7 @@ using namespace std;
 
 // Read in vdif header produced after vdifzipper
 
-void catvdif(Configuration* config, int configindex, float durus, size_t verbose, int myid, size_t div)
+void catvdif(Configuration* config, int configindex, float durus, size_t verbose, int antid, size_t div)
 {
   int mjd, seconds;
 
@@ -59,13 +59,13 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
 
   if(verbose >= 1)
   {
-    cout << "Antenna " << myid << ":" << endl;
+    cout << "Antenna " << antid << ":" << endl;
   }
   // retrieve number of subbands, total framebytes, antenna name
   // and the vdif packet bytes for each singal channel vdif file
-  framebytes = (size_t)config->getFrameBytes(configindex, myid);
-  numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, myid);
-  antname = config->getTelescopeName(myid);
+  framebytes = (size_t)config->getFrameBytes(configindex, antid);
+  numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, antid);
+  antname = config->getTelescopeName(antid);
   // change the last character of the output vdif name to lower case for fourfit postprocessing
   //antname.back() = tolower(antname.back());
   antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
@@ -73,8 +73,8 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
   ifstream tsegfile[div];
 
   // retrieve bandwidth information and number of frames per second of each antenna
-  bw = config->getDRecordedBandwidth(configindex, myid, 0);
-  framespersec = config->getFramesPerSecond(configindex, myid);
+  bw = config->getDRecordedBandwidth(configindex, antid, 0);
+  framespersec = config->getFramesPerSecond(configindex, antid);
   totalnumframes = durus / 1e6 * framespersec;
 
   if(verbose >= 1)
@@ -92,11 +92,11 @@ void catvdif(Configuration* config, int configindex, float durus, size_t verbose
   fill_n(outputvdifbuf, framebytes, 0);
   if(verbose >= 2)
   {
-    cout << " Allocated memory for vdif packet buffer for antenna " << myid << endl;
+    cout << " Allocated memory for vdif packet buffer for antenna " << antid << endl;
   }
 
   // initialize VDIF header of the output buffer
-  createVDIFHeader((vdif_header *)outputvdifbuf, framebytes - VDIF_HEADER_BYTES, myid, BITS, numrecordedbands, ISCOMPLEX, (char *)antname.c_str());
+  createVDIFHeader((vdif_header *)outputvdifbuf, framebytes - VDIF_HEADER_BYTES, antid, BITS, numrecordedbands, ISCOMPLEX, (char *)antname.c_str());
   setVDIFEpoch((vdif_header *)outputvdifbuf, mjd);
   setVDIFFrameMJDSec((vdif_header *)outputvdifbuf, mjd*86400 + seconds);
   if(verbose >= 2)

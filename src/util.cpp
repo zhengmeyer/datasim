@@ -288,7 +288,7 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
  * quantization
  * pack to vdif
  */
- int processAndPacketize(vector<Subband*>& sbVec, Model* model, size_t verbose)
+ int processAndPacketize(vector<Subband*>& sbVec, Model* model, size_t verbose, int pcal)
  {
    vector<Subband*>::iterator it;
    for(it = sbVec.begin(); it != sbVec.end(); ++it)
@@ -297,7 +297,10 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
        cout << "Antenna " << (*it)->getantIdx() << " Subband "
             << (*it)->getsbIdx() << " process vdif packet" << endl;
      (*it)->fillprocbuffer();
-     (*it)->processdata();
+     if(pcal != 0)
+       (*it)->processdatawithpcal(pcal);
+     else
+       (*it)->processdata();
      (*it)->updatevalues(model);
 
      (*it)->quantize();

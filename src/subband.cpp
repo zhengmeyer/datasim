@@ -351,7 +351,6 @@ void Subband::swap(Subband& n2)
   swap(d_cptr, n2.d_cptr);
   swap(d_procptr, n2.d_procptr);
   swap(d_filename, n2.d_filename);
-  //d_vdiffile.swap(n2.d_vdiffile);
 
   std::ofstream d_tempvdif;
   d_tempvdif.copyfmt(d_vdiffile);
@@ -525,6 +524,31 @@ void Subband::processdata()
 
   // update packet counter
   d_pkcounter++;
+}
+
+/*
+ * apply applyphasecal
+ * assume a range x-y is given
+ */
+void Subband::applyphasecal(int pcal)
+{
+    for(size_t sidx = 0; sidx < 2 * d_vpsamps; sidx++)
+      d_real[sidx] += d_bandwidth * sin(2*M_PI*sidx*pcal);
+      
+  // assume the filter array has size of d_blksize
+  // with values 0.0, 1/2, 4/5, 1, 1, ...., 1, 4/5, 1/2
+  d_real[0] = 0.0;
+  d_real[1] *= 1.0/2;
+  d_real[2] *= 4.0/5;
+  d_real[2*d_vpsamps-1] *= 1.0/2;
+  d_real[2*d_vpsamps-2] *= 4.0/5;
+}
+
+void Subband::processdatawithpcal(int pcal)
+{
+  processdata();
+  // 5. add phasecal
+  applyphasecal(pcal);
 }
 
 /*

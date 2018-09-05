@@ -90,6 +90,8 @@ class Subband{
      */
     void processdata();
 
+    void processdatawithpcal(int pcal);
+
     /*
      * update package counter
      * update nearest sample
@@ -187,6 +189,7 @@ class Subband{
     void applyfracsamperrcorrection();
     void applyfringerotation();
     double fraction_of(double val);
+    void applyphasecal(int pcal);
 
     // DFT and inverseDFT
     void DFT(Ipp32fc* pSrc, Ipp32fc* pDst, vecDFTSpecC_cf32* pDFTSpecC, u8* buf);

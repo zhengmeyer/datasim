@@ -52,7 +52,7 @@ static void usage(int argc, char **argv)
   cout << "     -s" << endl;
   cout << "     --sefd        antenna SEFDs in a comma-seperated list in Jansky.\n"
        << "                   If there are more antennas than provided SEFDs,\n"
-       << "                   SEFD of the remaining antennas is set to 1000 Jansky."
+       << "                   SEFD of the remaining antennas is set to 3000 Jansky."
        << "                   Maximum number of antennas supported is 20."<< endl;
   cout << endl;
   cout << "     -d" << endl;
@@ -66,13 +66,15 @@ static void usage(int argc, char **argv)
        << "                   no matter what's given in the configuration file." << endl;
   cout << endl;
   cout << "     -l" << endl;
-  cout << "     --line        line signal in the form of frequency,amplitude." << endl;
+  cout << "     --line        spectral line in the form of frequency,amplitude." << endl;
   cout << endl;
-  /*
-  cout << "     -i" << endl;
-  cout << "     --injection   injection signal in the form of frequency,amplitude." << endl;
+  cout << "     -n" << endl;
+  cout << "     --numdivs     number of parts to be divided into for time-based parallelisation." << endl;
   cout << endl;
-  */
+
+  cout << "     -p" << endl;
+  cout << "     --pcal        phasecal interval in MHz." << endl;
+  cout << endl;
 }
 
 static void cmdparser(int argc, char* argv[], setup &setupinfo)
@@ -87,11 +89,11 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
     {"test",      no_argument,        0,  't'},
     {"line",      required_argument,  0,  'l'},
     {"numdivs",   required_argument,  0,  'n'},
-    //{"injection", required_argument,  0,  'i'},
+    {"pcal",      required_argument,  0,  'p'},
     {0,           0,                  0,   0 }
   };
   int long_index = 0;
-  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:n:",
+  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:n:p:",
               long_options, &long_index)) != -1)
   {
     switch(tmp)
@@ -173,6 +175,17 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
             setupinfo.numdivs = atoi(optarg);
           }
           break;
+        case 'p':
+          if(*optarg == '-' || *optarg == ' ')
+          {
+            cerr << "Option -p requires an unsigned integer as argument." << endl;
+            exit (EXIT_FAILURE);
+          }
+          else
+          {
+            setupinfo.pcal = atoi(optarg);
+          }
+          break;
       default:
         usage(argc, argv);
         exit (EXIT_FAILURE);
@@ -220,14 +233,11 @@ int main(int argc, char* argv[])
     setupinfo.seed = SEED;
     setupinfo.sfluxdensity = 10;     // source flux density in Jansky
     for(size_t idx = 0; idx < MAXANT; idx++)
-      setupinfo.antSEFDs[idx] = 200;
+      setupinfo.antSEFDs[idx] = 3000;
     for(size_t i = 0; i < LINESIGLEN; i++)
       setupinfo.linesignal[i] = 0;
     setupinfo.numdivs = 1;
-    /*
-    for(size_t i = 0; i < setupinfo.injectionsignal.size(); i++)
-      setupinfo.injectionsignal[i] = 0;
-    */
+    setupinfo.pcal = 0;
 
     // parse command line argument
     cmdparser(argc, argv, setupinfo);
@@ -235,8 +245,8 @@ int main(int argc, char* argv[])
 
   // MPI_Type_create_struct
   // Create struct for setupinfo
-  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN, 1};
-  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR, MPI_FLOAT, MPI_INT};
+  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN, 1, 1};
+  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR, MPI_FLOAT, MPI_INT, MPI_INT};
   MPI_Aint disp[NITEMS];
   MPI_Datatype structtype;
 
@@ -248,6 +258,7 @@ int main(int argc, char* argv[])
   disp[5] = offsetof(setup, inputfilename);
   disp[6] = offsetof(setup, linesignal);
   disp[7] = offsetof(setup, numdivs);
+  disp[8] = offsetof(setup, pcal);
 
   MPI_Type_create_struct(NITEMS, block, disp, type, &structtype);
   MPI_Type_commit(&structtype);
@@ -487,6 +498,7 @@ int main(int argc, char* argv[])
   // calculate linesignal position if linesignal value is given
   size_t linesigidx = setupinfo.linesignal[0] / specRes * 2;
 
+
   while(timer < durus)
   {
     if(local_rank == MASTER)
@@ -494,6 +506,12 @@ int main(int argc, char* argv[])
       if(setupinfo.verbose >= 1)
         cout << "Generate " << tdur << " us signal" << endl;
       gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
+      // add spectral line to common signal
+      for(size_t idx = 0; idx < sampsize; idx+=linesigidx)
+      {
+        commFreqSig[idx] *= sqrt(setupinfo.linesignal[1]);
+        commFreqSig[idx+1] *= sqrt(setupinfo.linesignal[1]);
+      }
     }
 
     MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
@@ -509,13 +527,9 @@ int main(int argc, char* argv[])
           commSlice[samp] = commFreqSig[idx];
         }
 
-        // add line signal amplitute to common signal
-        // the frequency is covered by multiple sample in the time block (stime)
-        for(size_t s = 0 ; s < stime; s++)
-        {
-          commSlice[linesigidx + 2*s] += sqrt(setupinfo.linesignal[1]);
-          commSlice[linesigidx + 2*s+1] += sqrt(setupinfo.linesignal[1]);
-        }
+        //commSlice[linesigidx] *= sqrt(setupinfo.linesignal[1]);
+        //commSlice[linesigidx+1] *= sqrt(setupinfo.linesignal[1]);
+
 
         (*it)->fabricatedata(commSlice, rng_inst[myid], setupinfo.sfluxdensity);
       }
@@ -554,7 +568,7 @@ int main(int argc, char* argv[])
     while((tt < tdur) && (timer < durus))
     {
       // process and packetize one vdif packet for each subband array
-      int rc = processAndPacketize(subbands, model, setupinfo.verbose);
+      int rc = processAndPacketize(subbands, model, setupinfo.verbose, setupinfo.pcal);
       if(rc)
       {
         MPI_Abort(MPI_COMM_WORLD, ERROR);
@@ -573,22 +587,49 @@ int main(int argc, char* argv[])
   // free allocated common signal memory
   delete commFreqSig;
 
-  if(local_rank < numdatastreams)
+  // combine VDIF files
+  if(local_size < numdatastreams)
   {
-    // combine VDIF files
-    for(int idx = 0; idx < numdatastreams/local_size; idx++)
-    vdifzipper(config, configindex, durus, setupinfo.verbose, idx, color);
+    size_t antperproc = (numdatastreams%local_size == 0) ? (size_t)numdatastreams/local_size : (size_t)numdatastreams/local_size + 1;
+    for(size_t idx = 0; idx < antperproc; idx++)
+    {
+      size_t antidx = idx + local_rank * antperproc;
+      if(antidx < (size_t)numdatastreams)
+        vdifzipper(config, configindex, durus, setupinfo.verbose, antidx, color);
+    }
+  }
+  else
+  {
+    if(local_rank < numdatastreams)
+      vdifzipper(config, configindex, durus, setupinfo.verbose, local_rank, color);
   }
 
+  //if(local_rank < numdatastreams)
+  //  vdifzipper(config, configindex, durus, setupinfo.verbose, local_rank, color);
 
   MPI_Type_free(&structtype);
   MPI_Comm_free(&local_comm);
 
-  if(myid < numdatastreams)
+
+  if(numprocs < numdatastreams)
   {
-    for(int idx = 0; idx < numdatastreams/local_size; idx++)
-    catvdif(config, configindex, durus, setupinfo.verbose, idx, div);
+    size_t antperproc = (numdatastreams%numprocs == 0) ? (size_t)numdatastreams/numprocs : (size_t)numdatastreams/numprocs + 1;
+    if(setupinfo.verbose >= 1) cout << "catvdif: number of antennas to process for process " << myid << " is "<< antperproc << endl;
+    for(size_t idx = 0; idx < antperproc; idx++)
+    {
+      size_t antidx = idx + myid * antperproc;
+      if(antidx < (size_t)numdatastreams)
+        catvdif(config, configindex, durus, setupinfo.verbose, antidx, div);
+    }
   }
+  else
+  {
+    if(myid < numdatastreams)
+      catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
+  }
+
+  //if(myid < numdatastreams)
+  //  catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
 
   freeSubbands(subbands);
   if(myid == MASTER)
