@@ -576,7 +576,8 @@ int main(int argc, char* argv[])
   if(local_rank < numdatastreams)
   {
     // combine VDIF files
-    vdifzipper(config, configindex, durus, setupinfo.verbose, local_rank, color);
+    for(int idx = 0; idx < numdatastreams/local_size; idx++)
+    vdifzipper(config, configindex, durus, setupinfo.verbose, idx, color);
   }
 
 
@@ -584,7 +585,10 @@ int main(int argc, char* argv[])
   MPI_Comm_free(&local_comm);
 
   if(myid < numdatastreams)
-    catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
+  {
+    for(int idx = 0; idx < numdatastreams/local_size; idx++)
+    catvdif(config, configindex, durus, setupinfo.verbose, idx, div);
+  }
 
   freeSubbands(subbands);
   if(myid == MASTER)
