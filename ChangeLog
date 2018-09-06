@@ -1,0 +1,6 @@
+version 1.0:
+* simulate continuum source
+version 2.0:
+* subband-based parallelization
+* added spectral line simulation
+* added phasecal simulation

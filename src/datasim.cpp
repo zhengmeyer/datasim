@@ -515,13 +515,6 @@ int main(int argc, char* argv[])
   commFreqSig = new float [sampsize];
   commSlice = new float [numSamps*2];
 
-  // calculate linesignal position if linesignal value is given
-  /*
-  size_t linesigidx;
-  if(setupinfo.linesignal[0] > EPSILON)
-    linesigidx = setupinfo.linesignal[0] / specRes * 2;
-  */
-
   // apply Gaussian filter as spectral line
   float* gaussianfilter = new float [numSamps*2];
   if(setupinfo.linesignal[0] > EPSILON)
@@ -536,17 +529,6 @@ int main(int argc, char* argv[])
       if(setupinfo.verbose >= 1)
         cout << "Generate " << tdur << " us signal" << endl;
       gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
-      // add single point spectral line to common signal
-      /*
-      if(setupinfo.linesignal[0] > EPSILON)
-      {
-        for(size_t idx = 0; idx < (size_t)sampsize; idx+=linesigidx)
-        {
-          commFreqSig[idx] *= sqrt(setupinfo.linesignal[1]);
-          commFreqSig[idx+1] *= sqrt(setupinfo.linesignal[1]);
-        }
-      }
-      */
 
       if(setupinfo.linesignal[0] > EPSILON)
       {
@@ -569,11 +551,6 @@ int main(int argc, char* argv[])
           size_t idx = t*numSamps*2+samp;
           commSlice[samp] = commFreqSig[idx];
         }
-
-        //commSlice[linesigidx] *= sqrt(setupinfo.linesignal[1]);
-        //commSlice[linesigidx+1] *= sqrt(setupinfo.linesignal[1]);
-
-
         (*it)->fabricatedata(commSlice, rng_inst[myid], setupinfo.sfluxdensity);
       }
       // after TDUR time signal is generated for each subband array
