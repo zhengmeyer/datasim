@@ -90,6 +90,9 @@ class Subband{
      */
     void processdata();
 
+    /*
+     * Process data and apply phasecal
+     */
     void processdatawithpcal(int pcal);
 
     /*

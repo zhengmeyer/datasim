@@ -297,7 +297,7 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
        cout << "Antenna " << (*it)->getantIdx() << " Subband "
             << (*it)->getsbIdx() << " process vdif packet" << endl;
      (*it)->fillprocbuffer();
-     if(pcal != 0)
+     if(pcal > EPSILON)
        (*it)->processdatawithpcal(pcal);
      else
        (*it)->processdata();
@@ -331,4 +331,20 @@ double getMinProcPtrTime(vector<Subband*>& sbVec, size_t verbose)
     minprocptrtime = (minprocptrtime > temp) ? temp : minprocptrtime;
   }
   return minprocptrtime;
+}
+
+void gengaussianfilter(float* arr, float* linesignal, int len, float specRes)
+{
+  float filter[len];
+  float amplitude = sqrt(linesignal[1]);
+  float rms = linesignal[2];
+  float linesigidx = linesignal[0]/specRes;
+  for(size_t idx = 0; idx < (size_t)len; idx++)
+    filter[idx] = amplitude * exp(-M_PI*M_PI*pow((float)idx-linesigidx, 2) / (2*rms*rms));
+  // double the array lenth due to complex samples
+  for(size_t idx = 0; idx < (size_t)len*2; idx+=2)
+  {
+    arr[idx] = filter[idx/2];
+    arr[idx+1] = filter[idx/2];
+  }
 }

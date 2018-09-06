@@ -34,8 +34,8 @@
 #define SEED 48573
 #define MAXANT 20
 #define MAXLEN 50
-#define LINESIGLEN 2
-#define NITEMS 9
+#define LINESIGLEN 3
+#define NITEMS 10
 
 #define MASTER 0
 
@@ -49,6 +49,7 @@ typedef struct setup {
   float linesignal[LINESIGLEN];             // spectral line signal
   int numdivs;                              // number of parts to divide into for time-based parallelisation
   int pcal;                                 // phasecal interval
+  int specres;                              // scaling factor of spectral resolution
 } setup;
 
 int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
@@ -110,6 +111,8 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
  * calculate the lowest process pointer in terms of time among all subband arrays
  */
 double getMinProcPtrTime(vector<Subband*>& sbVec, size_t verbose);
+
+void gengaussianfilter(float* arr, float* linesignal, int len, float specRes);
 
 #endif /* __UTIL_H__ */
 

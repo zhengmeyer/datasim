@@ -527,14 +527,21 @@ void Subband::processdata()
 }
 
 /*
- * apply applyphasecal
- * assume a range x-y is given
+ * apply phasecal
  */
-void Subband::applyphasecal(int pcal)
+void Subband::applyphasecal(int pcalinterval)
 {
+  for(size_t pcalfreq = 0; pcalfreq < (size_t)d_bandwidth/pcalinterval; pcalfreq++)
+  {
     for(size_t sidx = 0; sidx < 2 * d_vpsamps; sidx++)
-      d_real[sidx] += d_bandwidth * sin(2*M_PI*sidx*pcal);
-      
+    {
+      // sin(2*PI*index * pcalfreq / (2 * bandwitdh))
+      // index = sampleindex mod (2 * bandwitdh)
+      // since the signal is too strong, add a scaling factor of 1/500
+      size_t modidx = sidx % (size_t)(2 * d_bandwidth);
+      d_real[sidx] += 1.0/500.0 * sin(2*M_PI*modidx*pcalfreq*pcalinterval/(2*d_bandwidth));
+    }
+  }
   // assume the filter array has size of d_blksize
   // with values 0.0, 1/2, 4/5, 1, 1, ...., 1, 4/5, 1/2
   d_real[0] = 0.0;

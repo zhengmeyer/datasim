@@ -66,14 +66,17 @@ static void usage(int argc, char **argv)
        << "                   no matter what's given in the configuration file." << endl;
   cout << endl;
   cout << "     -l" << endl;
-  cout << "     --line        spectral line in the form of frequency,amplitude." << endl;
+  cout << "     --specline    spectral line in the form of frequency,amplitude,rms, e.g. -l 16,10,3 ." << endl;
   cout << endl;
   cout << "     -n" << endl;
   cout << "     --numdivs     number of parts to be divided into for time-based parallelisation." << endl;
   cout << endl;
-
   cout << "     -p" << endl;
-  cout << "     --pcal        phasecal interval in MHz." << endl;
+  cout << "     --pcal        phasecal interval in MHz, e.g. -p 1 ." << endl;
+  cout << endl;
+  cout << "     -r" << endl;
+  cout << "     --specres     scaling factor of spectral resolution, \n"
+       << "                   e.g. -r 4 will generate 4 times more samples than by default." << endl;
   cout << endl;
 }
 
@@ -87,13 +90,14 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
     {"seed",      required_argument,  0,  'd'},
     {"verbose",   no_argument,        0,  'v'},
     {"test",      no_argument,        0,  't'},
-    {"line",      required_argument,  0,  'l'},
+    {"specline",  required_argument,  0,  'l'},
     {"numdivs",   required_argument,  0,  'n'},
     {"pcal",      required_argument,  0,  'p'},
+    {"specres",   required_argument,  0,  'r'},
     {0,           0,                  0,   0 }
   };
   int long_index = 0;
-  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:n:p:",
+  while((tmp=getopt_long(argc,argv,"hf:s:d:vtl:n:p:r:",
               long_options, &long_index)) != -1)
   {
     switch(tmp)
@@ -149,7 +153,7 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
       case 'l':
         if(*optarg == '-' || *optarg == ' ')
         {
-          cerr << "Option -l requires argument in the form of frequency,amplitude." << endl;
+          cerr << "Option -l requires argument in the form of frequency,amplitude,rms." << endl;
           exit (EXIT_FAILURE);
         }
         else
@@ -186,6 +190,17 @@ static void cmdparser(int argc, char* argv[], setup &setupinfo)
             setupinfo.pcal = atoi(optarg);
           }
           break;
+        case 'r':
+            if(*optarg == '-' || *optarg == ' ')
+            {
+              cerr << "Option -r requires an unsigned integer as argument." << endl;
+              exit (EXIT_FAILURE);
+            }
+            else
+            {
+              setupinfo.specres = atoi(optarg);
+            }
+            break;
       default:
         usage(argc, argv);
         exit (EXIT_FAILURE);
@@ -238,6 +253,7 @@ int main(int argc, char* argv[])
       setupinfo.linesignal[i] = 0;
     setupinfo.numdivs = 1;
     setupinfo.pcal = 0;
+    setupinfo.specres = 1;
 
     // parse command line argument
     cmdparser(argc, argv, setupinfo);
@@ -245,8 +261,9 @@ int main(int argc, char* argv[])
 
   // MPI_Type_create_struct
   // Create struct for setupinfo
-  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN, 1, 1};
-  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT, MPI_INT, MPI_CHAR, MPI_FLOAT, MPI_INT, MPI_INT};
+  int block[NITEMS] = {1, 1, 1, 1, MAXANT, MAXLEN, LINESIGLEN, 1, 1, 1};
+  MPI_Datatype type[NITEMS] = {MPI_INT, MPI_INT, MPI_UNSIGNED, MPI_FLOAT,
+    MPI_INT, MPI_CHAR, MPI_FLOAT, MPI_INT, MPI_INT, MPI_INT};
   MPI_Aint disp[NITEMS];
   MPI_Datatype structtype;
 
@@ -259,6 +276,7 @@ int main(int argc, char* argv[])
   disp[6] = offsetof(setup, linesignal);
   disp[7] = offsetof(setup, numdivs);
   disp[8] = offsetof(setup, pcal);
+  disp[9] = offsetof(setup, specres);
 
   MPI_Type_create_struct(NITEMS, block, disp, type, &structtype);
   MPI_Type_commit(&structtype);
@@ -334,6 +352,8 @@ int main(int argc, char* argv[])
     cout << "Process " << myid << ": Failed to calculate spectral resolution ..." << endl;
     return EXIT_FAILURE;
   };
+  // devide the spectral resolution by extra user-defined scaling factor
+  specRes /= (float)setupinfo.specres;
   numSamps = getNumSamps(config, configindex, specRes, setupinfo.verbose);
   stime = static_cast<size_t>(1 / specRes); // step time in microsecond
   if(setupinfo.verbose >= 1 && myid == MASTER)
@@ -496,8 +516,18 @@ int main(int argc, char* argv[])
   commSlice = new float [numSamps*2];
 
   // calculate linesignal position if linesignal value is given
-  size_t linesigidx = setupinfo.linesignal[0] / specRes * 2;
+  /*
+  size_t linesigidx;
+  if(setupinfo.linesignal[0] > EPSILON)
+    linesigidx = setupinfo.linesignal[0] / specRes * 2;
+  */
 
+  // apply Gaussian filter as spectral line
+  float* gaussianfilter = new float [numSamps*2];
+  if(setupinfo.linesignal[0] > EPSILON)
+  {
+    gengaussianfilter(gaussianfilter, setupinfo.linesignal, numSamps, specRes);
+  }
 
   while(timer < durus)
   {
@@ -506,12 +536,25 @@ int main(int argc, char* argv[])
       if(setupinfo.verbose >= 1)
         cout << "Generate " << tdur << " us signal" << endl;
       gencplx(commFreqSig, sampsize, STDEV, rng_inst[myid], setupinfo.verbose);
-      // add spectral line to common signal
-      for(size_t idx = 0; idx < sampsize; idx+=linesigidx)
+      // add single point spectral line to common signal
+      /*
+      if(setupinfo.linesignal[0] > EPSILON)
       {
-        commFreqSig[idx] *= sqrt(setupinfo.linesignal[1]);
-        commFreqSig[idx+1] *= sqrt(setupinfo.linesignal[1]);
+        for(size_t idx = 0; idx < (size_t)sampsize; idx+=linesigidx)
+        {
+          commFreqSig[idx] *= sqrt(setupinfo.linesignal[1]);
+          commFreqSig[idx+1] *= sqrt(setupinfo.linesignal[1]);
+        }
       }
+      */
+
+      if(setupinfo.linesignal[0] > EPSILON)
+      {
+        for(size_t t = 0; t < (size_t)sampsize/numSamps/2; t++)
+          for(size_t idx = 0; idx < (size_t)numSamps*2; idx++)
+            commFreqSig[t*numSamps*2+idx] *= gaussianfilter[idx];
+      }
+
     }
 
     MPI_Bcast(commFreqSig, sampsize, MPI_FLOAT, MASTER, MPI_COMM_WORLD);
