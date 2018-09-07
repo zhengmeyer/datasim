@@ -43,6 +43,7 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
 
   mjd = config->getStartMJD();
   seconds = config->getStartSeconds();
+  seconds += durus/(float)1e6 * color;
   if(verbose >= 1)
   {
     cout << "mjd is " << mjd << ", seconds is " << seconds << endl;

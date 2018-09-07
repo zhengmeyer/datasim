@@ -623,7 +623,6 @@ int main(int argc, char* argv[])
   MPI_Type_free(&structtype);
   MPI_Comm_free(&local_comm);
 
-/*
   if(numprocs < numdatastreams)
   {
     size_t antperproc = (numdatastreams%numprocs == 0) ? (size_t)numdatastreams/numprocs : (size_t)numdatastreams/numprocs + 1;
@@ -631,9 +630,11 @@ int main(int argc, char* argv[])
     for(size_t idx = 0; idx < antperproc; idx++)
     {
       size_t antidx = idx + myid * antperproc;
-      string antname = config->getTelescopeName(antidx);
       if(antidx < (size_t)numdatastreams)
+      {
+        string antname = config->getTelescopeName(antidx);
         catvdif(antname, setupinfo.verbose, antidx, div);
+      }
     }
   }
   else
@@ -642,7 +643,7 @@ int main(int argc, char* argv[])
     if(myid < numdatastreams)
       catvdif(antname, setupinfo.verbose, myid, div);
   }
-*/
+
   //if(myid < numdatastreams)
   //  catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
 
