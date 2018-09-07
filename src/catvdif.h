@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -22,12 +22,9 @@
 #define __CATVDIF_H__
 
 #include "configuration.h"
+#include "vdifzipper.h"
 
-#define BITS 2
-#define ISCOMPLEX 0
-#define BITSPERBYTE 8
-
-void catvdif(Configuration* config, int configindex, float durus, size_t verbose, int myid, size_t div);
+void catvdif(string antname, size_t verbose, int antidx, size_t div);
 
 #endif /* __CATVDIF_H__ */
 

@@ -233,7 +233,7 @@ Subband::Subband(size_t const &startIdx, size_t const &blksize, size_t const &le
 
   // initialize VDIF header
   createVDIFHeader((vdif_header *)d_vdifbuf, d_vpbytes - VDIF_HEADER_BYTES, d_sbIdx, BITS, 1, ISCOMPLEX, (char *)d_antname.c_str());
-  setVDIFEpoch((vdif_header *)d_vdifbuf, d_mjd);
+  setVDIFEpochMJD((vdif_header *)d_vdifbuf, d_mjd);
   setVDIFFrameMJDSec((vdif_header *)d_vdifbuf, d_mjd*86400 + d_seconds);
 
   d_sampcount = 0;

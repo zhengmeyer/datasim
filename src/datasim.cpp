@@ -47,12 +47,12 @@ static void usage(int argc, char **argv)
   cout << "     --help        display this information and quit." << endl;
   cout << endl;
   cout << "     -f" << endl;
-  cout << "     --flux        source flux density in Jansky (default is 1 Jy)." << endl;
+  cout << "     --flux        source flux density in Jansky (default is 100 Jy)." << endl;
   cout << endl;
   cout << "     -s" << endl;
   cout << "     --sefd        antenna SEFDs in a comma-seperated list in Jansky.\n"
        << "                   If there are more antennas than provided SEFDs,\n"
-       << "                   SEFD of the remaining antennas is set to 3000 Jansky."
+       << "                   SEFD of the remaining antennas is set to 1000 Jansky."
        << "                   Maximum number of antennas supported is 20."<< endl;
   cout << endl;
   cout << "     -d" << endl;
@@ -68,9 +68,9 @@ static void usage(int argc, char **argv)
   cout << "     -l" << endl;
   cout << "     --specline    spectral line in the form of frequency,amplitude,rms, e.g. -l 16,10,3 ." << endl;
   cout << endl;
-  cout << "     -n" << endl;
-  cout << "     --numdivs     number of parts to be divided into for time-based parallelisation." << endl;
-  cout << endl;
+  //cout << "     -n" << endl;
+  //cout << "     --numdivs     number of parts to be divided into for time-based parallelisation." << endl;
+  //cout << endl;
   cout << "     -p" << endl;
   cout << "     --pcal        phasecal interval in MHz, e.g. -p 1 ." << endl;
   cout << endl;
@@ -246,9 +246,9 @@ int main(int argc, char* argv[])
     setupinfo.verbose = 0;
     setupinfo.test = 0;
     setupinfo.seed = SEED;
-    setupinfo.sfluxdensity = 10;     // source flux density in Jansky
+    setupinfo.sfluxdensity = 100;     // source flux density in Jansky
     for(size_t idx = 0; idx < MAXANT; idx++)
-      setupinfo.antSEFDs[idx] = 3000;
+      setupinfo.antSEFDs[idx] = 1000;
     for(size_t i = 0; i < LINESIGLEN; i++)
       setupinfo.linesignal[i] = 0;
     setupinfo.numdivs = 1;
@@ -436,7 +436,7 @@ int main(int argc, char* argv[])
   // Broadcast sbcount to all processes
   MPI_Bcast(&sbcount, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
 
-  durus = durus/div;
+  durus /= (float)div;
   int color = myid / (numprocs/div);
   // Create communication groups for each time-based partition
   MPI_Comm local_comm;
@@ -493,15 +493,8 @@ int main(int argc, char* argv[])
   // Subband-based parallelization starts here
   vector<Subband*> subbands;
 
-  int mjd = config->getStartMJD();
-  int seconds = config->getStartSeconds();
-  if(setupinfo.verbose >= 1)
-  {
-    cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
-  }
-
   // every process initialize its own subbands
-  initSubbands(config, configindex, model, specRes, minStartFreq, subbands, numsbperproc, tdur, setupinfo, sbinfo, color);
+  initSubbands(config, configindex, model, specRes, minStartFreq, subbands, numsbperproc, tdur, setupinfo, sbinfo, color, durus);
 
   if(setupinfo.verbose >= 1)
     cout << "Process " << myid
@@ -630,7 +623,7 @@ int main(int argc, char* argv[])
   MPI_Type_free(&structtype);
   MPI_Comm_free(&local_comm);
 
-
+/*
   if(numprocs < numdatastreams)
   {
     size_t antperproc = (numdatastreams%numprocs == 0) ? (size_t)numdatastreams/numprocs : (size_t)numdatastreams/numprocs + 1;
@@ -638,16 +631,18 @@ int main(int argc, char* argv[])
     for(size_t idx = 0; idx < antperproc; idx++)
     {
       size_t antidx = idx + myid * antperproc;
+      string antname = config->getTelescopeName(antidx);
       if(antidx < (size_t)numdatastreams)
-        catvdif(config, configindex, durus, setupinfo.verbose, antidx, div);
+        catvdif(antname, setupinfo.verbose, antidx, div);
     }
   }
   else
   {
+    string antname = config->getTelescopeName(myid);
     if(myid < numdatastreams)
-      catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
+      catvdif(antname, setupinfo.verbose, myid, div);
   }
-
+*/
   //if(myid < numdatastreams)
   //  catvdif(config, configindex, durus, setupinfo.verbose, myid, div);
 

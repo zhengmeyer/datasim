@@ -33,7 +33,7 @@ using namespace std;
 
 int initSubbands(Configuration* config, int configindex, Model* model, float specRes,
                   float minStartFreq, vector<Subband*> &subbands, int numsubbands,
-                  float tdur, setup setupinfo, int* sbinfo, int color)
+                  float tdur, setup setupinfo, int* sbinfo, int color, float durus)
 {
   for(size_t sbnum = 0; sbnum < (size_t)numsubbands; sbnum++)
   {
@@ -56,6 +56,9 @@ int initSubbands(Configuration* config, int configindex, Model* model, float spe
 
     antidx = sbinfo[sbnum*2];
     sbidx = sbinfo[sbnum*2+1];
+    mjd = config->getStartMJD();
+    seconds = config->getStartSeconds();
+    seconds += durus/(float)1e6 * color;
     framebytes = (size_t)config->getFrameBytes(configindex, antidx);
     numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, antidx);
     antframespersec = (size_t)config->getFramesPerSecond(configindex, antidx);
@@ -68,6 +71,11 @@ int initSubbands(Configuration* config, int configindex, Model* model, float spe
     // allocate memory for delaycoeffs
     tempcoeffs = vectorAlloc_f64(2);
     delaycoeffs = vectorAlloc_f64(2);
+
+    if(setupinfo.verbose >= 1)
+    {
+      cout << "MJD is " << mjd << ", start seconds is " << seconds << endl;
+    }
 
     if(setupinfo.verbose >= 1)
     {
@@ -293,6 +301,9 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
    vector<Subband*>::iterator it;
    for(it = sbVec.begin(); it != sbVec.end(); ++it)
    {
+     //update VDIF Header for the next packet
+     nextVDIFHeader((vdif_header *) (*it)->getvdifbuf(), (int) (*it)->getantframespersec());
+     
      if(verbose >= 2)
        cout << "Antenna " << (*it)->getantIdx() << " Subband "
             << (*it)->getsbIdx() << " process vdif packet" << endl;
@@ -308,8 +319,6 @@ void gencplx(float* cpDst, size_t len, f32 stdev, gsl_rng *rng_inst, size_t verb
      if(verbose >= 2)
        cout << "current seconds is " << ((vdif_header *)(*it)->getvdifbuf())->seconds
             << ", frame number is " << ((vdif_header *)(*it)->getvdifbuf())->frame << endl;
-     //update VDIF Header for the next packet
-     nextVDIFHeader((vdif_header *) (*it)->getvdifbuf(), (int) (*it)->getantframespersec());
    }
    return (EXIT_SUCCESS);
  }

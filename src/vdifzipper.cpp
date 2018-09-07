@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -35,12 +35,12 @@ using namespace std;
  * @configindex Configuration index
  * @durus Observation time in microseconds
  */
-void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid, int color)
+void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int antidx, int color)
 {
   int mjd, seconds;
-  
+
   cout << "Combine VDIF files of each channel into a single-thread multi-channel VDIF file ..." << endl;
- 
+
   mjd = config->getStartMJD();
   seconds = config->getStartSeconds();
   if(verbose >= 1)
@@ -64,13 +64,13 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
 
   if(verbose >= 1)
   {
-    cout << "Antenna " << myid << ":" << endl;
+    cout << "Antenna " << antidx << ":" << endl;
   }
   // retrieve number of subbands, total framebytes, antenna name
   // and the vdif packet bytes for each singal channel vdif file
-  framebytes = (size_t)config->getFrameBytes(configindex, myid);
-  numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, myid);
-  antname = config->getTelescopeName(myid);
+  framebytes = (size_t)config->getFrameBytes(configindex, antidx);
+  numrecordedbands = (size_t)config->getDNumRecordedBands(configindex, antidx);
+  antname = config->getTelescopeName(antidx);
   // change the last character of the output vdif name to lower case for fourfit postprocessing
   //antname.back() = tolower(antname.back());
   antname.at(antname.size()-1) = tolower(antname.at(antname.size()-1));
@@ -81,8 +81,8 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   ifstream chfile[numrecordedbands];
 
   // retrieve bandwidth information and number of frames per second of each antenna
-  bw = config->getDRecordedBandwidth(configindex, myid, 0);
-  framespersec = config->getFramesPerSecond(configindex, myid);
+  bw = config->getDRecordedBandwidth(configindex, antidx, 0);
+  framespersec = config->getFramesPerSecond(configindex, antidx);
   totalnumframes = durus / 1e6 * framespersec;
 
   if(verbose >= 1)
@@ -101,16 +101,16 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
   fill_n(inputvdifbuf, chvpbytes, 0);
   if(verbose >= 2)
   {
-    cout << " Allocated memory for vdif packet buffer for antenna " << myid << endl;  
+    cout << " Allocated memory for vdif packet buffer for antenna " << antidx << endl;
   }
 
   // initialize VDIF header of the output buffer
-  createVDIFHeader((vdif_header *)outputvdifbuf, framebytes - VDIF_HEADER_BYTES, myid, BITS, numrecordedbands, ISCOMPLEX, (char *)antname.c_str());
-  setVDIFEpoch((vdif_header *)outputvdifbuf, mjd);
+  createVDIFHeader((vdif_header *)outputvdifbuf, framebytes - VDIF_HEADER_BYTES, antidx, BITS, numrecordedbands, ISCOMPLEX, (char *)antname.c_str());
+  setVDIFEpochMJD((vdif_header *)outputvdifbuf, mjd);
   setVDIFFrameMJDSec((vdif_header *)outputvdifbuf, mjd*86400 + seconds);
   if(verbose >= 2)
   {
-    cout << " VDIF header initialized" << endl; 
+    cout << " VDIF header initialized" << endl;
   }
 
   stringstream cc;
@@ -124,22 +124,25 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     {
       cout << " Opened " << antname+ "-" + cc.str() << ".vdif for writing ..." << endl;
     }
-    // open vdif file of each channel 
+    // open vdif file of each channel
     for(size_t ch = 0; ch < numrecordedbands; ch++)
     {
-      stringstream ss;  
+      stringstream ss;
       ss << ch;
       ostringstream filename;
       filename << antname << "_" << ss.str() << "-" << cc.str() << ".vdif";
       chfile[ch].open(filename.str().c_str(), ios::binary);
       if(verbose >= 2)
       {
-        cout << " Opened input file " << filename.str() << endl;         
+        cout << " Opened input file " << filename.str() << endl;
       }
     }
 
     for(size_t idx = 0; idx < totalnumframes; idx++)
     {
+      //update VDIF Header for the next packet
+      if(idx != totalnumframes - 1)
+        nextVDIFHeader((vdif_header *)outputvdifbuf, (int) framespersec);
       // loop through all the channels
       for(size_t ch = 0; ch < numrecordedbands; ch++)
       {
@@ -177,17 +180,13 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
       }
       // write to output vdif file
       outputvdif.write((char *)outputvdifbuf, framebytes * sizeof(uint8_t));
-
-      //update VDIF Header for the next packet
-      if(idx != totalnumframes - 1)
-        nextVDIFHeader((vdif_header *)outputvdifbuf, (int) framespersec);     
     }
     // close input vdif files
     for(size_t ch = 0; ch < numrecordedbands; ch++)
     {
       chfile[ch].close();
       if(verbose >= 1)
-      { 
+      {
         cout << " Closed input file for channel " << ch << endl;
       }
     }
@@ -197,8 +196,8 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
     {
       cout << " Closed " << antname << ".vdif ..." << endl;
     }
-  } catch (ofstream::failure e) {                                                                              
-    cerr << "Exception opening/closinging input or output vdif file" << endl;                                              
+  } catch (ofstream::failure e) {
+    cerr << "Exception opening/closinging input or output vdif file" << endl;
   }
   // free memory of input and output vdif buffer
   vectorFree(outputvdifbuf);
@@ -213,9 +212,9 @@ void vdifzipper(Configuration* config, int configindex, float durus, size_t verb
 int main(int argc, char* argv[])
 {
   MPI_Init(&argc, &argv);
-  int numprocs, myid;
+  int numprocs, antidx;
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_rank(MPI_COMM_WORLD, &antidx);
 
   Configuration* config;
   int configindex = 0;
@@ -229,8 +228,8 @@ int main(int argc, char* argv[])
   dur = config->getExecuteSeconds();
   durus = dur * 1e6;
   numdatastreams = config->getNumDataStreams();
-  if(myid < numdatastreams)
-    vdifzipper(config, configindex, durus, verbose, myid);
+  if(antidx < numdatastreams)
+    vdifzipper(config, configindex, durus, verbose, antidx);
 
   MPI_Finalize();
   return 0;

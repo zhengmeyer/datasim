@@ -1,5 +1,5 @@
 /*****************************************************************************
-*    <DataSim: VLBI data simulator>                                          * 
+*    <DataSim: VLBI data simulator>                                          *
 *    Copyright (C) <2015> <Zheng Meyer-Zhao>                                 *
 *                                                                            *
 *    This file is part of DataSim.                                           *
@@ -27,7 +27,7 @@
 #define ISCOMPLEX 0
 #define BITSPERBYTE 8
 
-void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int myid, int color);
+void vdifzipper(Configuration* config, int configindex, float durus, size_t verbose, int antidx, int color);
 
 #endif /* __VDIFZIPPER_H__ */
 
