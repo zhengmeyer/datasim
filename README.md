@@ -1,13 +1,13 @@
 [![DOI](https://zenodo.org/badge/39930086.svg)](https://zenodo.org/badge/latestdoi/39930086)
 
 
-Requirements:
+# Requirements:
 *DiFX-2.4 or above
 *GSL
 *GSLCBLAS
 *automake autoconf libtool
 
-Description:
+# Description:
 
 Limitations:
 1. 2-bits sampling
@@ -15,7 +15,7 @@ Limitations:
 3. Default SEFD for 3 antennas
 4. VDIF packet of all antennas need to repsent the same time length
 
-Installation:
+# Installation:
 
 $ libtoolize --force
 $ aclocal -I m4
@@ -26,7 +26,7 @@ $ ./configure --prefix=$HOME
 $ make
 $ make install
 
-Usage:
+# Usage:
 1. source DiFX setup.bash file
 2. source HOPS hops.bash file
 3. 'datasim --help' shows a list of possible options 
