@@ -18,14 +18,14 @@ Limitations:
 
 # Installation:
 
-$ libtoolize --force
-$ aclocal -I m4
-$ autoheader
-$ automake --force-missing --add-missing
-$ autoconf
-$ ./configure --prefix=$HOME
-$ make
-$ make install
+* $ libtoolize --force
+* $ aclocal -I m4
+* $ autoheader
+* $ automake --force-missing --add-missing
+* $ autoconf
+* $ ./configure --prefix=$HOME
+* $ make
+* $ make install
 
 # Usage:
 1. source DiFX setup.bash file
