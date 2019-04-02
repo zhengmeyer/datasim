@@ -2,10 +2,11 @@
 
 
 # Requirements:
-*DiFX-2.4 or above
-*GSL
-*GSLCBLAS
-*automake autoconf libtool
+
+* DiFX-2.4 or above
+* GSL
+* GSLCBLAS
+* automake autoconf libtool
 
 # Description:
 
